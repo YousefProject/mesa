@@ -1,0 +1,12 @@
+/mesa
+/mesa.exe
+/data/
+/dist/
+/*.db
+/*.db-wal
+/*.db-shm
+*.test
+*.out
+.DS_Store
+.vscode/
+.idea/

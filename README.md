@@ -1,0 +1,115 @@
+# Mesa de Servicios
+
+Mesa de servicio (helpdesk/ticketing) web, multiusuario, en Go + SQLite + SSR + HTMX.
+
+## Características
+
+- **Autenticación**: login/registro público, sesiones con CSRF, roles (admin/agent/requester)
+- **Tickets**: creación, estados (new/assigned/in_progress/waiting/resolved/closed), prioridades (low/normal/high/urgent), colas, asignación
+- **SLA**: políticas por prioridad, vencimientos de respuesta y resolución, detección de incumplimiento, avisos automáticos
+- **Comunicación**: comentarios públicos e internos, adjuntos con límite configurable
+- **Panel**: dashboard con KPIs (abiertos, sin asignar, SLA incumplido, resueltos hoy), carga por agente, actividad reciente
+- **Administración**: gestión de usuarios/colas/SLA, auditoría completa
+- **Notificaciones**: SMTP con modo dry-run (se registran en logs si no se configura)
+- **Multiusuario**: permisos por rol
+- **Despliegue**: binario único, SQLite embebido, sin build frontend, fácil en un VPS
+
+## Requisitos
+
+- Go 1.25+ (para desarrollo) o binario precompilado
+- SQLite (embebido vía modernc.org/sqlite, sin CGO)
+
+## Instalación (rápida)
+
+### Opción 1: Compilar
+
+```bash
+git clone https://github.com/YousefProject/mesa.git
+cd mesa
+go build -o mesa
+./mesa -version
+```
+
+### Opción 2: Usar release (GoReleaser)
+
+Los releases incluyen binarios para Linux/macOS/Windows.
+
+## Arranque
+
+Por defecto escucha en `:8080`, guarda datos en `./data/`.
+
+```bash
+# Primer arranque: crea administrador por defecto (admin@localhost)
+./mesa
+# Ver logs y contraseña generada
+```
+
+Salida ejemplo:
+```
+Usuario:    admin@localhost
+Contraseña: abcdef1234567890
+Cámbiala en /me o crea otro con -create-admin.
+```
+
+### Crear administrador explícito
+
+```bash
+./mesa -create-admin -admin-email admin@mesa.local -admin-password CAMBIAR_ESTA_PASSWORD
+```
+
+### Flags
+
+- `-version` → muestra versión
+- `-create-admin` → crea/actualiza administrador y sale
+- `-admin-email` / `-admin-name` / `-admin-password`
+- `-addr` → dirección (ej. `:8080` o `127.0.0.1:8080`)
+
+## Variables de entorno
+
+| Variable | Defecto | Descripción |
+|---|---|---|
+| `SD_ADDR` | `:8080` | Dirección de escucha |
+| `SD_BASE_URL` | `http://localhost:8080` | URL pública (para enlaces de email) |
+| `SD_DATA_DIR` | `./data` | Ruta para `mesa.db` y `attachments/` |
+| `SD_ALLOW_SIGNUP` | `true` | Permitir registro público |
+| `SD_SESSION_TTL` | `168h` | Duración de sesión (7 días) |
+| `SD_MAX_UPLOAD_MB` | `10` | Tamaño máximo por subida |
+| `SD_COOKIE_SECURE` | `false` | Forzar cookies seguras (HTTPS) |
+| `SD_TRUST_PROXY` | `false` | Confiar en `X-Forwarded-For` (detrás de proxy) |
+| `SD_SMTP_HOST` | `""` | Host SMTP (vacío = dry-run) |
+| `SD_SMTP_PORT` | `587` | Puerto SMTP |
+| `SD_SMTP_USER` | `""` | Usuario SMTP |
+| `SD_SMTP_PASS` | `""` | Contraseña SMTP |
+| `SD_SMTP_FROM` | `mesa@localhost` | From |
+| `SD_SMTP_STARTTLS` | `true` | Usar STARTTLS |
+| `SD_ADMIN_EMAIL` | `""` | Admin para bootstrap |
+| `SD_ADMIN_PASSWORD` | `""` | Password para bootstrap |
+
+## Uso rápido
+
+1. Accede a `http://localhost:8080`
+2. Inicia sesión con `admin@localhost` + la contraseña generada (o la que hayas indicado)
+3. Ve a `Administración > Usuarios` para crear agentes
+4. Ve a `Administración > Colas` para crear colas
+5. Los solicitantes pueden registrarse (`/signup`) o se les crea como requester
+6. El dashboard muestra SLA incumplidos y carga por agente
+
+## Sistema de SLA
+
+Las políticas por defecto:
+- `urgent` → respuesta 15m / resolución 240m
+- `high` → 60m / 480m
+- `normal` → 240m / 1440m
+- `low` → 480m / 2880m
+
+Cuando se incumple SLA, se marca `sla_breached`, se audita (`sla.breached`) y se notifica al asignado (o a todo el staff si no hay asignado).
+
+## Notas de despliegue
+
+- **Detrás de reverse proxy** (nginx/caddy): pon `SD_TRUST_PROXY=true` si quieres que las IPs sean correctas.
+- **HTTPS**: pon `SD_COOKIE_SECURE=true`.
+- **Backups**: copia `data/servicedesk.db` y `data/attachments/`. El WAL (`servicedesk.db-wal/shm`) también debe incluirse o cerrar la app antes de copiar.
+
+## Licencia
+
+MIT

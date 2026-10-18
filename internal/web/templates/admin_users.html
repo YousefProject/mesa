@@ -1,0 +1,68 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Usuarios</h1>
+  <nav class="tabs">
+    <a href="/admin/users" class="on">Usuarios</a>
+    <a href="/admin/queues">Colas</a>
+    <a href="/admin/sla">SLA</a>
+    <a href="/admin/audit">Auditoría</a>
+  </nav>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr></thead>
+    <tbody>
+      {{range .Users}}
+      {{$u := .}}
+      <tr class="{{if not .Active}}inactive{{end}}">
+        <td>{{.Name}}</td>
+        <td class="mono">{{.Email}}</td>
+        <td>
+          <form method="post" action="/admin/users/{{.ID}}" class="inline">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="action" value="role">
+            <select name="role" onchange="this.form.requestSubmit()">
+              {{range $.Roles}}
+              <option value="{{.}}" {{if isRole $u .}}selected{{end}}>{{roleLabel .}}</option>
+              {{end}}
+            </select>
+            <noscript><button class="btn btn-sm">ok</button></noscript>
+          </form>
+        </td>
+        <td>{{if .Active}}<span class="pill st-resolved">activo</span>{{else}}<span class="pill st-closed">inactivo</span>{{end}}</td>
+        <td class="muted nowrap">{{fmtTime .CreatedAt}}</td>
+        <td class="actions-cell">
+          <form method="post" action="/admin/users/{{.ID}}" class="inline">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="action" value="active">
+            <input type="hidden" name="active" value="{{if .Active}}0{{else}}1{{end}}">
+            <button class="btn btn-sm">{{if .Active}}Desactivar{{else}}Activar{{end}}</button>
+          </form>
+          <form method="post" action="/admin/users/{{.ID}}" class="inline">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="action" value="password">
+            <input type="password" name="password" placeholder="nueva contraseña" minlength="8">
+            <button class="btn btn-sm">Reset</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Crear usuario</h3>
+  <form method="post" action="/admin/users" class="filters">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="text" name="name" placeholder="Nombre" required>
+    <input type="email" name="email" placeholder="correo@dominio" required>
+    <input type="password" name="password" placeholder="contraseña (mín. 8)" minlength="8" required>
+    <select name="role">
+      {{range .Roles}}<option value="{{.}}">{{roleLabel .}}</option>{{end}}
+    </select>
+    <button class="btn btn-primary" type="submit">Crear</button>
+  </form>
+</div>
+{{end}}

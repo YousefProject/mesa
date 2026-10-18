@@ -1,0 +1,51 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Nuevo ticket</h1>
+  <a class="btn btn-ghost" href="/tickets">Cancelar</a>
+</div>
+
+<form method="post" action="/tickets" class="card stack">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <label>Asunto</label>
+  <input type="text" name="subject" maxlength="200" required autofocus placeholder="Resumen breve del problema o petición">
+
+  <label>Descripción</label>
+  <textarea name="description" rows="8" placeholder="Qué ocurre, a quién afecta, desde cuándo, qué has probado…"></textarea>
+
+  <div class="grid2">
+    <div>
+      <label>Prioridad</label>
+      <select name="priority">
+        {{range .Priority}}
+        <option value="{{.}}" {{if eq . "normal"}}selected{{end}}>{{prioLabel .}}</option>
+        {{end}}
+      </select>
+      <p class="muted small">La prioridad fija el SLA de respuesta y resolución.</p>
+    </div>
+    <div>
+      <label>Cola</label>
+      <select name="queue_id">
+        <option value="">Sin cola</option>
+        {{range .Queues}}
+        <option value="{{.ID}}">{{.Name}}</option>
+        {{end}}
+      </select>
+      <p class="muted small">Opcional, ayuda a encaminar el ticket.</p>
+    </div>
+  </div>
+
+  {{if .Staff}}
+  <label>Asignar a</label>
+  <select name="assignee_id">
+    <option value="">Sin asignar</option>
+    {{range .Staff}}
+    <option value="{{.ID}}">{{.Name}}</option>
+    {{end}}
+  </select>
+  {{end}}
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Crear ticket</button>
+  </div>
+</form>
+{{end}}

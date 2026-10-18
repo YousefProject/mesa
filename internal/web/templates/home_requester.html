@@ -1,0 +1,24 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Mis tickets</h1>
+  <a class="btn btn-primary" href="/tickets/new">+ Nuevo ticket</a>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Ref</th><th>Asunto</th><th>Estado</th><th>Prioridad</th>
+        <th>Asignado</th><th>Solicitante</th><th>SLA</th><th>Actualizado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Tickets}}
+        {{template "ticketRow" dict "Ticket" . "Now" $.Now}}
+      {{else}}
+      <tr><td colspan="8" class="empty">No tienes tickets todavía. <a href="/tickets/new">Crea el primero</a>.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}

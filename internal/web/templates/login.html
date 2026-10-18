@@ -1,0 +1,17 @@
+{{define "content"}}
+<div class="authbox">
+  <h1>Entrar</h1>
+  <p class="muted">Accede a la mesa de servicios</p>
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Correo</label>
+    <input type="email" name="email" autocomplete="username" required autofocus>
+    <label>Contraseña</label>
+    <input type="password" name="password" autocomplete="current-password" required>
+    <button class="btn btn-primary" type="submit">Entrar</button>
+  </form>
+  {{if .AllowSignup}}
+  <p class="muted center">¿No tienes cuenta? <a href="/signup">Créala como solicitante</a></p>
+  {{end}}
+</div>
+{{end}}

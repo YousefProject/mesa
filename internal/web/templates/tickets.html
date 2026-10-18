@@ -1,0 +1,61 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Tickets <span class="muted">{{.Total}} en vista</span></h1>
+  <a class="btn btn-primary" href="/tickets/new">+ Nuevo ticket</a>
+</div>
+
+<form class="filters card" method="get" action="/tickets">
+  <input type="search" name="q" placeholder="Buscar ref, asunto o descripción" value="{{.Filter.Query}}">
+  <select name="status">
+    <option value="">Todos los estados</option>
+    {{range .StatusOptions}}
+    <option value="{{.}}" {{if eq . $.Filter.Status}}selected{{end}}>{{statusLabel .}}</option>
+    {{end}}
+  </select>
+  <select name="priority">
+    <option value="">Todas las prioridades</option>
+    {{range .PriorityOptions}}
+    <option value="{{.}}" {{if eq . $.Filter.Priority}}selected{{end}}>{{prioLabel .}}</option>
+    {{end}}
+  </select>
+  <select name="queue">
+    <option value="">Todas las colas</option>
+    {{range .Queues}}
+    <option value="{{.ID}}" {{if ptrEq $.Filter.QueueID .ID}}selected{{end}}>{{.Name}}</option>
+    {{end}}
+  </select>
+  {{if .Staff}}
+  <select name="assignee">
+    <option value="">Todos los asignados</option>
+    <option value="-1" {{if .Filter.Unassigned}}selected{{end}}>Sin asignar</option>
+    {{range .Staff}}
+    <option value="{{.ID}}" {{if ptrEq $.Filter.AssigneeID .ID}}selected{{end}}>{{.Name}}</option>
+    {{end}}
+  </select>
+  {{end}}
+  <label class="check">
+    <input type="checkbox" name="breached" value="1" {{if .Filter.Breached}}checked{{end}}>
+    Solo SLA incumplido
+  </label>
+  <button class="btn" type="submit">Filtrar</button>
+  <a class="btn btn-ghost" href="/tickets">Limpiar</a>
+</form>
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Ref</th><th>Asunto</th><th>Estado</th><th>Prioridad</th>
+        <th>Asignado</th><th>Solicitante</th><th>SLA</th><th>Actualizado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Tickets}}
+        {{template "ticketRow" dict "Ticket" . "Now" $.Now}}
+      {{else}}
+      <tr><td colspan="8" class="empty">No hay tickets que coincidan con el filtro.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}

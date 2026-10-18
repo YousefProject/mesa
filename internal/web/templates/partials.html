@@ -1,0 +1,155 @@
+{{define "slaBar"}}
+{{if .Ticket.DueResolution}}
+<div class="sla sla-{{.SLAState}}">
+  <div class="sla-head">
+    <span>Resolución {{dueIn .Ticket.DueResolution .Now}}</span>
+    <span>{{fmtTime .Ticket.DueResolution}}</span>
+  </div>
+  <div class="bar"><i style="width:{{percent .Ticket.ResolutionProgress}}%"></i></div>
+  {{if .Ticket.DueResponse}}
+  <div class="sla-head sub">
+    <span>Respuesta {{dueIn .Ticket.DueResponse .Now}}</span>
+    <span>{{if .Ticket.FirstResponse}}primera respuesta: {{humanAgo .Ticket.FirstResponse}}{{else}}pendiente{{end}}</span>
+  </div>
+  <div class="bar thin"><i style="width:{{percent .Ticket.ResponseProgress}}%"></i></div>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+
+{{define "statusBadge"}}<span class="pill {{statusClass .Ticket.Status}}">{{statusLabel .Ticket.Status}}</span>{{end}}
+
+{{define "ticketRow"}}
+<tr class="{{if (.Ticket.Breached .Now)}}breached{{end}}">
+  <td class="mono"><a href="/tickets/{{.Ticket.ID}}">{{.Ticket.Ref}}</a></td>
+  <td class="subject">
+    <a href="/tickets/{{.Ticket.ID}}">{{.Ticket.Subject}}</a>
+    {{if .Ticket.QueueName}}<span class="tag">{{.Ticket.QueueName}}</span>{{end}}
+  </td>
+  <td><span class="pill {{statusClass .Ticket.Status}}">{{statusLabel .Ticket.Status}}</span></td>
+  <td><span class="pill {{prioClass .Ticket.Priority}}">{{prioLabel .Ticket.Priority}}</span></td>
+  <td>{{if .Ticket.AssigneeName}}{{.Ticket.AssigneeName}}{{else}}<span class="muted">sin asignar</span>{{end}}</td>
+  <td class="muted">{{.Ticket.RequesterName}}</td>
+  <td class="nowrap">
+    {{if .Ticket.DueResolution}}
+      <span class="sla-mini sla-{{slaState .Ticket .Now}}">{{dueIn .Ticket.DueResolution .Now}}</span>
+    {{else}}<span class="muted">—</span>{{end}}
+  </td>
+  <td class="muted nowrap">{{humanAgo .Ticket.UpdatedAt}}</td>
+</tr>
+{{end}}
+
+{{define "commentItem"}}
+<div class="comment {{if .Comment.Internal}}internal{{end}}" id="c{{.Comment.ID}}">
+  <div class="comment-head">
+    <span class="avatar sm">{{initials .Comment.AuthorName}}</span>
+    <strong>{{.Comment.AuthorName}}</strong>
+    <span class="muted">{{roleLabel .Comment.AuthorRole}}</span>
+    {{if .Comment.Internal}}<span class="pill st-waiting">nota interna</span>{{end}}
+    <span class="muted right">{{humanAgo .Comment.CreatedAt}} · {{fmtTime .Comment.CreatedAt}}</span>
+  </div>
+  <div class="comment-body">{{.Comment.Body}}</div>
+</div>
+{{end}}
+
+{{define "attachmentList"}}
+<ul class="attachments">
+{{range .}}
+  <li>
+    <a href="/attachments/{{.ID}}">{{.Filename}}</a>
+    <span class="muted">{{humanSize .Size}} · {{.UploaderName}} · {{humanAgo .CreatedAt}}</span>
+  </li>
+{{end}}
+</ul>
+{{end}}
+
+{{define "ticketSide"}}
+<aside class="side">
+  {{if .CanTriage}}
+  <form class="card" hx-post="/tickets/{{.Ticket.ID}}/status" hx-target="#side" hx-swap="outerHTML">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Estado</label>
+    <select name="status" onchange="this.form.requestSubmit()">
+      {{range .Statuses}}
+      <option value="{{.}}" {{if eq . $.Ticket.Status}}selected{{end}}>{{statusLabel .}}</option>
+      {{end}}
+    </select>
+    <noscript><button class="btn btn-sm" type="submit">Guardar</button></noscript>
+  </form>
+
+  <form class="card" hx-post="/tickets/{{.Ticket.ID}}/priority" hx-target="#side" hx-swap="outerHTML">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Prioridad</label>
+    <select name="priority" onchange="this.form.requestSubmit()">
+      {{range .Priorities}}
+      <option value="{{.}}" {{if eq . $.Ticket.Priority}}selected{{end}}>{{prioLabel .}}</option>
+      {{end}}
+    </select>
+    <noscript><button class="btn btn-sm" type="submit">Guardar</button></noscript>
+  </form>
+
+  <form class="card" hx-post="/tickets/{{.Ticket.ID}}/assign" hx-target="#side" hx-swap="outerHTML">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Asignado</label>
+    <select name="assignee_id" onchange="this.form.requestSubmit()">
+      <option value="0" {{if not .Ticket.AssigneeID}}selected{{end}}>sin asignar</option>
+      <option value="me">yo</option>
+      {{range .Staff}}
+      <option value="{{.ID}}" {{if ptrEq $.Ticket.AssigneeID .ID}}selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+    <noscript><button class="btn btn-sm" type="submit">Guardar</button></noscript>
+  </form>
+
+  <form class="card" hx-post="/tickets/{{.Ticket.ID}}/queue" hx-target="#side" hx-swap="outerHTML">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Cola</label>
+    <select name="queue_id" onchange="this.form.requestSubmit()">
+      <option value="0" {{if not .Ticket.QueueID}}selected{{end}}>sin cola</option>
+      {{range .Queues}}
+      <option value="{{.ID}}" {{if ptrEq $.Ticket.QueueID .ID}}selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+    <noscript><button class="btn btn-sm" type="submit">Guardar</button></noscript>
+  </form>
+  {{end}}
+
+  <div class="card">
+    <label>SLA</label>
+    {{if .Ticket.DueResolution}}
+      <div class="sla sla-{{.SLAState}}">
+        <div class="sla-head"><span>Resolución {{dueIn .Ticket.DueResolution .Now}}</span></div>
+        <div class="bar"><i style="width:{{percent .Ticket.ResolutionProgress}}%"></i></div>
+        <div class="sla-head sub"><span>Respuesta {{dueIn .Ticket.DueResponse .Now}}</span></div>
+        <div class="bar thin"><i style="width:{{percent .Ticket.ResponseProgress}}%"></i></div>
+      </div>
+    {{else}}<span class="muted">sin SLA</span>{{end}}
+  </div>
+
+  <div class="card">
+    <label>Datos</label>
+    <dl class="meta">
+      <dt>Solicitante</dt><dd>{{.Ticket.RequesterName}}</dd>
+      <dt>Creado</dt><dd>{{fmtTime .Ticket.CreatedAt}}</dd>
+      <dt>Actualizado</dt><dd>{{humanAgo .Ticket.UpdatedAt}}</dd>
+      {{if .Ticket.ResolvedAt}}<dt>Resuelto</dt><dd>{{fmtTime .Ticket.ResolvedAt}}</dd>{{end}}
+      {{if .Ticket.ClosedAt}}<dt>Cerrado</dt><dd>{{fmtTime .Ticket.ClosedAt}}</dd>{{end}}
+    </dl>
+  </div>
+</aside>
+{{end}}
+
+{{define "auditList"}}
+<ul class="audit">
+  {{range .}}
+  <li>
+    <span class="muted nowrap">{{fmtTime .CreatedAt}}</span>
+    <strong>{{.Action}}</strong>
+    <span>{{.ActorName}}</span>
+    {{if .Details}}<span class="muted">— {{.Details}}</span>{{end}}
+  </li>
+  {{else}}
+  <li class="muted">sin eventos</li>
+  {{end}}
+</ul>
+{{end}}

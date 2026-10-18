@@ -1,0 +1,40 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Colas</h1>
+  <nav class="tabs">
+    <a href="/admin/users">Usuarios</a>
+    <a href="/admin/queues" class="on">Colas</a>
+    <a href="/admin/sla">SLA</a>
+    <a href="/admin/audit">Auditoría</a>
+  </nav>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead><tr><th>Cola</th><th>Descripción</th><th>Abiertos</th><th>Creada</th><th></th></tr></thead>
+    <tbody>
+      {{range .Queues}}
+      <tr>
+        <td><strong>{{.Name}}</strong></td>
+        <td class="muted">{{.Description}}</td>
+        <td>{{.TicketCount}}</td>
+        <td class="muted nowrap">{{fmtTime .CreatedAt}}</td>
+        <td><a class="btn btn-sm" href="/tickets?queue={{.ID}}">Ver tickets</a></td>
+      </tr>
+      {{else}}
+      <tr><td colspan="5" class="empty">No hay colas definidas.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Nueva cola</h3>
+  <form method="post" action="/admin/queues" class="filters">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="text" name="name" placeholder="Nombre" required>
+    <input type="text" name="description" placeholder="Descripción">
+    <button class="btn btn-primary" type="submit">Crear</button>
+  </form>
+</div>
+{{end}}

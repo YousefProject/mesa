@@ -1,0 +1,32 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Políticas de SLA</h1>
+  <nav class="tabs">
+    <a href="/admin/users">Usuarios</a>
+    <a href="/admin/queues">Colas</a>
+    <a href="/admin/sla" class="on">SLA</a>
+    <a href="/admin/audit">Auditoría</a>
+  </nav>
+</div>
+
+<form method="post" action="/admin/sla" class="card">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <table class="table">
+    <thead><tr><th>Prioridad</th><th>Respuesta (min)</th><th>Resolución (min)</th><th>Equivale a</th></tr></thead>
+    <tbody>
+      {{range .Policies}}
+      <tr>
+        <td><span class="pill {{prioClass .Priority}}">{{prioLabel .Priority}}</span></td>
+        <td><input type="number" name="response_{{.Priority}}" value="{{.ResponseMinutes}}" min="1" required></td>
+        <td><input type="number" name="resolution_{{.Priority}}" min="1" required value="{{.ResolutionMinutes}}"></td>
+        <td class="muted nowrap">respuesta {{.ResponseMinutes}} min · resolución {{.ResolutionMinutes}} min</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Guardar políticas</button>
+    <span class="muted small">Se aplican a los tickets nuevos y al recalcular cuando cambia la prioridad.</span>
+  </div>
+</form>
+{{end}}

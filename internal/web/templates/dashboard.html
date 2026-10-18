@@ -1,0 +1,102 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Panel</h1>
+  <span class="muted">Actualizado {{fmtTime .Now}}</span>
+</div>
+
+<div class="kpis">
+  <a class="kpi" href="/tickets?status="><span class="kpi-num">{{.D.OpenTotal}}</span><span class="kpi-lbl">Tickets abiertos</span></a>
+  <a class="kpi warn" href="/tickets?assignee=-1"><span class="kpi-num">{{.D.Unassigned}}</span><span class="kpi-lbl">Sin asignar</span></a>
+  <a class="kpi bad" href="/tickets?breached=1"><span class="kpi-num">{{.D.Breached}}</span><span class="kpi-lbl">SLA incumplido</span></a>
+  <a class="kpi ok" href="/tickets?status=resolved"><span class="kpi-num">{{.D.ResolvedToday}}</span><span class="kpi-lbl">Resueltos hoy</span></a>
+  <div class="kpi"><span class="kpi-num">{{humanDuration (durationMin .D.AvgResolveMin)}}</span><span class="kpi-lbl">Tiempo medio resolución</span></div>
+</div>
+
+<div class="layout">
+  <section class="main">
+    <div class="card">
+      <h3>Por estado</h3>
+      <div class="bars">
+        {{range .Statuses}}
+        <div class="barrow">
+          <span class="pill {{statusClass .}}">{{statusLabel .}}</span>
+          <div class="bar"><i style="width:{{percent (ratio (index $.D.ByStatus .) $.D.OpenTotal)}}%"></i></div>
+          <span class="num">{{index $.D.ByStatus .}}</span>
+        </div>
+        {{end}}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Mis asignados</h3>
+      <table class="table">
+        <thead><tr><th>Ref</th><th>Asunto</th><th>Estado</th><th>Prioridad</th><th>SLA</th></tr></thead>
+        <tbody>
+        {{range .Mine}}
+          <tr>
+            <td class="mono"><a href="/tickets/{{.ID}}">{{.Ref}}</a></td>
+            <td>{{.Subject}}</td>
+            <td><span class="pill {{statusClass .Status}}">{{statusLabel .Status}}</span></td>
+            <td><span class="pill {{prioClass .Priority}}">{{prioLabel .Priority}}</span></td>
+            <td><span class="sla-mini sla-{{slaState . $.Now}}">{{dueIn .DueResolution $.Now}}</span></td>
+          </tr>
+        {{else}}
+          <tr><td colspan="5" class="empty">No tienes tickets asignados.</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Actividad reciente</h3>
+      <table class="table">
+        <thead><tr><th>Ref</th><th>Asunto</th><th>Estado</th><th>Actualizado</th></tr></thead>
+        <tbody>
+        {{range .Recent}}
+          <tr class="{{if (.Breached $.Now)}}breached{{end}}">
+            <td class="mono"><a href="/tickets/{{.ID}}">{{.Ref}}</a></td>
+            <td>{{.Subject}}</td>
+            <td><span class="pill {{statusClass .Status}}">{{statusLabel .Status}}</span></td>
+            <td class="muted">{{humanAgo .UpdatedAt}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h3>Colas</h3>
+      <ul class="list">
+        {{range .D.ByQueue}}
+        <li><span>{{.Name}}</span><span class="num">{{.Count}}</span></li>
+        {{else}}
+        <li class="muted">Sin colas con tickets abiertos.</li>
+        {{end}}
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Carga por agente</h3>
+      <ul class="list">
+        {{range .D.ByAgent}}
+        <li>
+          <span>{{.Name}}</span>
+          <span class="num">{{.Open}} abiertos{{if .Breached}} · <span class="bad">{{.Breached}} SLA</span>{{end}} · {{.Resolved7d}} resueltos/7d</span>
+        </li>
+        {{else}}
+        <li class="muted">Sin agentes.</li>
+        {{end}}
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Prioridades abiertas</h3>
+      <ul class="list">
+        {{range .Priorities}}
+        <li><span class="pill {{prioClass .}}">{{prioLabel .}}</span><span class="num">{{index $.D.ByPriority .}}</span></li>
+        {{end}}
+      </ul>
+    </div>
+  </aside>
+</div>
+{{end}}

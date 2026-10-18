@@ -1,0 +1,30 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Auditoría</h1>
+  <nav class="tabs">
+    <a href="/admin/users">Usuarios</a>
+    <a href="/admin/queues">Colas</a>
+    <a href="/admin/sla">SLA</a>
+    <a href="/admin/audit" class="on">Auditoría</a>
+  </nav>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead><tr><th>Cuándo</th><th>Actor</th><th>Acción</th><th>Entidad</th><th>Detalle</th></tr></thead>
+    <tbody>
+      {{range .Events}}
+      <tr>
+        <td class="nowrap">{{fmtTime .CreatedAt}}</td>
+        <td>{{.ActorName}}</td>
+        <td class="mono">{{.Action}}</td>
+        <td class="muted">{{if .EntityID}}{{.Entity}} #{{.EntityID}}{{else}}{{.Entity}}{{end}}</td>
+        <td class="muted">{{.Details}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="5" class="empty">Sin eventos.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}

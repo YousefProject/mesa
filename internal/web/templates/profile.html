@@ -1,0 +1,43 @@
+{{define "content"}}
+<div class="page-head"><h1>Mi cuenta</h1></div>
+
+<div class="layout">
+  <section class="main">
+    <form class="card stack" method="post" action="/me">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <h3>Datos</h3>
+      <label>Nombre</label>
+      <input type="text" name="name" value="{{.User.Name}}" required>
+      <label>Correo</label>
+      <input type="email" value="{{.User.Email}}" disabled>
+      <label>Rol</label>
+      <input type="text" value="{{roleLabel .User.Role}}" disabled>
+      <div class="actions"><button class="btn btn-primary" type="submit">Guardar</button></div>
+    </form>
+
+    <form class="card stack" method="post" action="/me/password">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <h3>Cambiar contraseña</h3>
+      <label>Contraseña actual</label>
+      <input type="password" name="current" autocomplete="current-password" required>
+      <label>Nueva contraseña</label>
+      <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+      <p class="muted small">Al cambiarla se cerrarán todas tus sesiones.</p>
+      <div class="actions"><button class="btn" type="submit">Actualizar contraseña</button></div>
+    </form>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h3>Actividad de la cuenta</h3>
+      <ul class="timeline">
+        {{range .Events}}
+        <li><span class="mono">{{.Action}}</span><span class="muted">{{humanAgo .CreatedAt}}</span><span class="muted small">{{.Details}}</span></li>
+        {{else}}
+        <li class="muted">Sin actividad registrada.</li>
+        {{end}}
+      </ul>
+    </div>
+  </aside>
+</div>
+{{end}}

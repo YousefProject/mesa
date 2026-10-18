@@ -1,0 +1,54 @@
+{{define "layout"}}<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · Mesa de servicios</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">Mesa&nbsp;de&nbsp;servicios</a>
+  <nav class="nav">
+    {{if isStaff .User}}
+      <a href="/" class="{{if eq .Path "/"}}on{{end}}">Panel</a>
+      <a href="/tickets" class="{{if eq .Path "/tickets"}}on{{end}}">Tickets</a>
+      {{if isAdmin .User}}
+        <a href="/admin/users" class="{{if hasPrefix .Path "/admin"}}on{{end}}">Administración</a>
+      {{end}}
+    {{else}}
+      <a href="/" class="{{if eq .Path "/"}}on{{end}}">Mis tickets</a>
+      <a href="/tickets" class="{{if eq .Path "/tickets"}}on{{end}}">Todos</a>
+    {{end}}
+    <a href="/tickets/new" class="btn btn-primary btn-sm">+ Nuevo ticket</a>
+  </nav>
+  <div class="user">
+    {{if .User}}
+      <a href="/me" class="userlink" title="Mi cuenta">
+        <span class="avatar">{{initials .User.Name}}</span>
+        <span class="uname">{{.User.Name}}</span>
+        <span class="role">{{roleLabel .User.Role}}</span>
+      </a>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button class="btn btn-sm" type="submit">Salir</button>
+      </form>
+    {{else}}
+      <a href="/login" class="btn btn-sm">Entrar</a>
+    {{end}}
+  </div>
+</header>
+
+<main class="wrap">
+{{if .Flash}}<div class="flash ok">{{.Flash}}</div>{{end}}
+{{if .Error}}<div class="flash err">{{.Error}}</div>{{end}}
+{{template "content" .}}
+</main>
+
+<footer class="foot">
+  <span>servicedesk {{.Version}}</span>
+  <span>SQLite · Go · HTMX</span>
+</footer>
+</body>
+</html>{{end}}

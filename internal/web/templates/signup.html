@@ -1,0 +1,17 @@
+{{define "content"}}
+<div class="authbox">
+  <h1>Crear cuenta</h1>
+  <p class="muted">Las cuentas nuevas se crean con rol de solicitante.</p>
+  <form method="post" action="/signup" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Nombre</label>
+    <input type="text" name="name" required autofocus>
+    <label>Correo</label>
+    <input type="email" name="email" autocomplete="username" required>
+    <label>Contraseña</label>
+    <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+    <button class="btn btn-primary" type="submit">Crear cuenta</button>
+  </form>
+  <p class="muted center">¿Ya tienes cuenta? <a href="/login">Entrar</a></p>
+</div>
+{{end}}

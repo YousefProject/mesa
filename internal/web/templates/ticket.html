@@ -1,0 +1,90 @@
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1 class="mono">{{.Ticket.Ref}}</h1>
+    <h2 class="subject-title">{{.Ticket.Subject}}</h2>
+  </div>
+  <div class="head-meta">
+    <span class="pill {{statusClass .Ticket.Status}}">{{statusLabel .Ticket.Status}}</span>
+    <span class="pill {{prioClass .Ticket.Priority}}">{{prioLabel .Ticket.Priority}}</span>
+    {{if (.Ticket.Breached .Now)}}<span class="pill sla-breached">SLA incumplido</span>{{end}}
+  </div>
+</div>
+
+<div class="layout">
+  <section class="main">
+    <div class="card">
+      <h3>Descripción</h3>
+      <div class="prose">{{.Ticket.Description}}</div>
+      {{if .Attachments}}
+      <h4>Adjuntos</h4>
+      {{template "attachmentList" .Attachments}}
+      {{end}}
+    </div>
+
+    <div class="card">
+      <h3>Conversación</h3>
+      <div id="comments">
+        {{range .Comments}}
+        <div class="comment {{if .Internal}}internal{{end}}" id="c{{.ID}}">
+          <div class="comment-head">
+            <span class="avatar sm">{{initials .AuthorName}}</span>
+            <strong>{{.AuthorName}}</strong>
+            <span class="muted">{{roleLabel .AuthorRole}}</span>
+            {{if .Internal}}<span class="pill st-waiting">nota interna</span>{{end}}
+            <span class="muted right">{{humanAgo .CreatedAt}} · {{fmtTime .CreatedAt}}</span>
+          </div>
+          <div class="comment-body">{{.Body}}</div>
+        </div>
+        {{else}}
+        <p class="muted">Todavía no hay comentarios.</p>
+        {{end}}
+      </div>
+
+      <form class="stack comment-form" method="post" action="/tickets/{{.Ticket.ID}}/comments"
+            hx-post="/tickets/{{.Ticket.ID}}/comments" hx-target="#comments" hx-swap="beforeend"
+            hx-on::after-request="if(event.detail.successful){this.reset()}">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <textarea name="body" rows="4" placeholder="Escribe una respuesta…" required></textarea>
+        <div class="actions">
+          {{if .CanTriage}}
+          <label class="check"><input type="checkbox" name="internal" value="1"> nota interna (no visible al solicitante)</label>
+          {{end}}
+          <button class="btn btn-primary" type="submit">Comentar</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Adjuntar archivos</h3>
+      <form class="stack" method="post" action="/tickets/{{.Ticket.ID}}/attachments" enctype="multipart/form-data">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="file" name="files" multiple>
+        <div class="actions">
+          <button class="btn" type="submit">Subir</button>
+          <span class="muted small">Máximo por archivo: configurado por el servidor.</span>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Historial</h3>
+      <ul class="timeline">
+        {{range .Events}}
+        <li>
+          <span class="mono">{{.Action}}</span>
+          <span>{{.Details}}</span>
+          <span class="muted">{{.ActorName}} · {{humanAgo .CreatedAt}}</span>
+        </li>
+        {{else}}
+        <li class="muted">Sin eventos.</li>
+        {{end}}
+      </ul>
+    </div>
+  </section>
+
+  <div id="side">
+    {{template "ticketSide" .}}
+  </div>
+</div>
+{{end}}

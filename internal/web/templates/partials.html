@@ -5,13 +5,13 @@
     <span>Resolución {{dueIn .Ticket.DueResolution .Now}}</span>
     <span>{{fmtTime .Ticket.DueResolution}}</span>
   </div>
-  <div class="bar"><i style="width:{{percent .Ticket.ResolutionProgress}}%"></i></div>
+  <div class="bar"><i style="width:{{percent (.Ticket.ResolutionProgress .Now)}}%"></i></div>
   {{if .Ticket.DueResponse}}
   <div class="sla-head sub">
     <span>Respuesta {{dueIn .Ticket.DueResponse .Now}}</span>
     <span>{{if .Ticket.FirstResponse}}primera respuesta: {{humanAgo .Ticket.FirstResponse}}{{else}}pendiente{{end}}</span>
   </div>
-  <div class="bar thin"><i style="width:{{percent .Ticket.ResponseProgress}}%"></i></div>
+  <div class="bar thin"><i style="width:{{percent (.Ticket.ResponseProgress .Now)}}%"></i></div>
   {{end}}
 </div>
 {{end}}
@@ -119,9 +119,9 @@
     {{if .Ticket.DueResolution}}
       <div class="sla sla-{{.SLAState}}">
         <div class="sla-head"><span>Resolución {{dueIn .Ticket.DueResolution .Now}}</span></div>
-        <div class="bar"><i style="width:{{percent .Ticket.ResolutionProgress}}%"></i></div>
+        <div class="bar"><i style="width:{{percent (.Ticket.ResolutionProgress .Now)}}%"></i></div>
         <div class="sla-head sub"><span>Respuesta {{dueIn .Ticket.DueResponse .Now}}</span></div>
-        <div class="bar thin"><i style="width:{{percent .Ticket.ResponseProgress}}%"></i></div>
+        <div class="bar thin"><i style="width:{{percent (.Ticket.ResponseProgress .Now)}}%"></i></div>
       </div>
     {{else}}<span class="muted">sin SLA</span>{{end}}
   </div>

@@ -193,11 +193,17 @@ func (s *Server) handleProfileSave(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	if err := s.store.UpdateUserProfile(u.ID, r.PostFormValue("name")); err != nil {
+	name := strings.TrimSpace(r.PostFormValue("name"))
+	email := auth.NormalizeEmail(r.PostFormValue("email"))
+	if email == "" || name == "" {
+		s.redirect(w, r, "/me?err="+qr("el nombre y el usuario o correo son obligatorios"))
+		return
+	}
+	if err := s.store.UpdateUserProfile(u.ID, name, email); err != nil {
 		s.redirect(w, r, "/me?err="+qr(err.Error()))
 		return
 	}
-	s.store.Audit(&u.ID, "user.profile", "user", u.ID, "nombre actualizado")
+	s.store.Audit(&u.ID, "user.profile", "user", u.ID, "perfil actualizado")
 	s.redirect(w, r, "/me?ok="+qr("perfil actualizado"))
 }
 

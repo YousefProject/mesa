@@ -164,6 +164,7 @@ func (s *Server) handleTicketCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.store.Audit(&u.ID, "ticket.create", "ticket", ticket.ID, "asunto: "+subject)
+	s.snaps.Write(ticket.ID)
 	s.notifyTicketCreated(ticket)
 	s.redirect(w, r, "/tickets/"+fmt.Sprint(ticket.ID)+"?ok="+qr(ticket.Ref+" creado"))
 }
@@ -269,6 +270,7 @@ func (s *Server) handleCommentCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.store.Audit(&u.ID, "comment.create", "ticket", t.ID, fmt.Sprintf("comentario #%d interno=%v", comment.ID, internal))
+	s.snaps.Write(t.ID)
 	s.notifyComment(t, comment)
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -300,6 +302,7 @@ func (s *Server) handleTicketStatus(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("cambiar estado", "err", err)
 	}
 	s.store.Audit(&u.ID, "ticket.status", "ticket", t.ID, fmt.Sprintf("%s → %s", t.Status, status))
+	s.snaps.Write(t.ID)
 	s.reloadAndRespond(w, r, t.ID)
 }
 
@@ -326,6 +329,7 @@ func (s *Server) handleTicketPriority(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("cambiar prioridad", "err", err)
 	}
 	s.store.Audit(&u.ID, "ticket.priority", "ticket", t.ID, fmt.Sprintf("%s → %s", t.Priority, priority))
+	s.snaps.Write(t.ID)
 	s.reloadAndRespond(w, r, t.ID)
 }
 
@@ -356,6 +360,7 @@ func (s *Server) handleTicketAssign(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.store.Audit(&u.ID, "ticket.assign", "ticket", t.ID, "asignado a "+target)
+	s.snaps.Write(t.ID)
 	s.reloadAndRespond(w, r, t.ID)
 }
 
@@ -373,6 +378,7 @@ func (s *Server) handleTicketQueue(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("cambiar cola", "err", err)
 	}
 	s.store.Audit(&u.ID, "ticket.queue", "ticket", t.ID, "cola actualizada")
+	s.snaps.Write(t.ID)
 	s.reloadAndRespond(w, r, t.ID)
 }
 
@@ -445,6 +451,7 @@ func (s *Server) handleTicketAttach(w http.ResponseWriter, r *http.Request) {
 		saved++
 	}
 	s.store.Audit(&u.ID, "attachment.create", "ticket", t.ID, fmt.Sprintf("%d archivo(s)", saved))
+	s.snaps.Write(t.ID)
 	s.redirect(w, r, "/tickets/"+fmt.Sprint(t.ID)+"?ok="+qr(fmt.Sprintf("%d adjunto(s) subido(s)", saved)))
 }
 
@@ -457,7 +464,7 @@ func (s *Server) saveAttachment(ticketID int64, commentID *int64, uploaderID int
 	}
 	defer src.Close()
 
-	dir := filepath.Join(s.cfg.AttachDir, fmt.Sprint(ticketID))
+	dir := s.cfg.AttachDir(ticketID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}

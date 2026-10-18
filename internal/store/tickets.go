@@ -191,7 +191,7 @@ func (s *Store) ListTickets(f TicketFilter) ([]model.Ticket, error) {
 func (s *Store) CountTickets(f TicketFilter) (int, error) {
 	where, args := f.where()
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM tickets t `+ticketJoins+where, args...).Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(*) `+ticketJoins+where, args...).Scan(&n)
 	return n, err
 }
 

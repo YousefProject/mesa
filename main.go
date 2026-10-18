@@ -9,15 +9,19 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/YousefProject/servicedesk/internal/auth"
+	"github.com/YousefProject/servicedesk/internal/backup"
 	"github.com/YousefProject/servicedesk/internal/config"
 	"github.com/YousefProject/servicedesk/internal/db"
 	"github.com/YousefProject/servicedesk/internal/mail"
 	"github.com/YousefProject/servicedesk/internal/model"
+	"github.com/YousefProject/servicedesk/internal/snapshot"
 	"github.com/YousefProject/servicedesk/internal/store"
 	"github.com/YousefProject/servicedesk/internal/web"
 )
@@ -29,12 +33,16 @@ var (
 )
 
 type options struct {
-	addr        string
-	adminEmail  string
-	adminName   string
-	adminPass   string
-	createAdmin bool
-	showVersion bool
+	addr         string
+	adminEmail   string
+	adminName    string
+	adminPass    string
+	createAdmin  bool
+	showVersion  bool
+	buildSnaps   bool
+	exportBackup string
+	importBackup string
+	overwrite    bool
 }
 
 func parseFlags() options {
@@ -45,6 +53,10 @@ func parseFlags() options {
 	flag.StringVar(&o.adminPass, "admin-password", "", "contraseña del administrador (vacío = aleatoria)")
 	flag.BoolVar(&o.createAdmin, "create-admin", false, "crea o actualiza el administrador y sale")
 	flag.BoolVar(&o.showVersion, "version", false, "muestra la versión y sale")
+	flag.BoolVar(&o.buildSnaps, "build-snapshots", false, "regenera data/tickets/<id>/snapshot.json para todos los tickets y sale")
+	flag.StringVar(&o.exportBackup, "export-backup", "", "exporta todos los tickets a un ZIP (ruta de salida) y sale")
+	flag.StringVar(&o.importBackup, "import-backup", "", "importa tickets desde un ZIP de backup y sale")
+	flag.BoolVar(&o.overwrite, "overwrite", false, "con -import-backup: reemplaza los tickets existentes con el mismo ID")
 	flag.Parse()
 	return o
 }
@@ -66,8 +78,14 @@ func main() {
 	if opts.addr != "" {
 		cfg.Addr = opts.addr
 	}
-	if err := os.MkdirAll(cfg.AttachDir, 0o700); err != nil {
-		fatal(logger, "crear directorio de adjuntos", err)
+	if err := os.MkdirAll(cfg.TicketsDir, 0o700); err != nil {
+		fatal(logger, "crear directorio de tickets", err)
+	}
+	if err := os.MkdirAll(filepath.Join(cfg.DataDir, "logs"), 0o700); err != nil {
+		fatal(logger, "crear directorio de logs", err)
+	}
+	if err := migrateDataLayout(logger, cfg); err != nil {
+		fatal(logger, "migrar estructura de datos", err)
 	}
 
 	conn, err := db.Open(cfg.DBPath)
@@ -84,6 +102,81 @@ func main() {
 		fatal(logger, "administrador", err)
 	}
 	if opts.createAdmin {
+		return
+	}
+
+	if opts.buildSnaps {
+		snaps := snapshot.New(st, cfg.TicketsDir, logger)
+		rows, err := conn.Query(`SELECT id FROM tickets`)
+		if err != nil {
+			fatal(logger, "listar tickets", err)
+		}
+		var ids []int64
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				fatal(logger, "leer ticket", err)
+			}
+			ids = append(ids, id)
+		}
+		rows.Close()
+		for _, id := range ids {
+			snaps.Write(id)
+		}
+		logger.Info("snapshots regenerados", "tickets", len(ids), "dir", cfg.TicketsDir)
+		return
+	}
+
+	if opts.exportBackup != "" {
+		snaps := snapshot.New(st, cfg.TicketsDir, logger)
+		ids, err := st.TicketIDs()
+		if err != nil {
+			fatal(logger, "listar tickets", err)
+		}
+		for _, id := range ids {
+			snaps.Write(id)
+		}
+		f, err := os.Create(opts.exportBackup)
+		if err != nil {
+			fatal(logger, "crear fichero de backup", err)
+		}
+		count, err := backup.Export(st, cfg.TicketsDir, version, f)
+		closeErr := f.Close()
+		if err != nil {
+			fatal(logger, "exportar backup", err)
+		}
+		if closeErr != nil {
+			fatal(logger, "cerrar fichero de backup", closeErr)
+		}
+		logger.Info("backup exportado", "fichero", opts.exportBackup, "tickets", count)
+		return
+	}
+
+	if opts.importBackup != "" {
+		f, err := os.Open(opts.importBackup)
+		if err != nil {
+			fatal(logger, "abrir backup", err)
+		}
+		info, err := f.Stat()
+		if err != nil {
+			f.Close()
+			fatal(logger, "stat backup", err)
+		}
+		rep, err := backup.Import(st, cfg, f, info.Size(), backup.ImportOptions{
+			Overwrite: opts.overwrite,
+			Logger:    logger,
+		})
+		f.Close()
+		if err != nil {
+			fatal(logger, "importar backup", err)
+		}
+		for _, w := range rep.Warnings {
+			logger.Warn("backup", "aviso", w)
+		}
+		logger.Info("backup importado",
+			"encontrados", rep.Tickets, "importados", len(rep.Imported),
+			"omitidos", len(rep.Skipped), "reemplazados", len(rep.Replaced))
 		return
 	}
 
@@ -125,6 +218,56 @@ func main() {
 
 // bootstrapAdmin crea el primer administrador si no hay usuarios, o actualiza el
 // administrador indicado con -admin-email/-admin-password.
+// migrateDataLayout traslada la estructura plana antigua (data/servicedesk.db,
+// data/attachments/<id>/) a la nueva disposición aislada por componente
+// (data/db/, data/tickets/<id>/attachments/). Es idempotente: si la BD ya
+// está en data/db/ o la vieja no existe, no hace nada.
+func migrateDataLayout(logger *slog.Logger, cfg config.Config) error {
+	oldDB := filepath.Join(cfg.DataDir, "servicedesk.db")
+	if _, err := os.Stat(oldDB); err == nil {
+		if _, err := os.Stat(cfg.DBPath); err != nil {
+			if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0o700); err != nil {
+				return err
+			}
+			if err := os.Rename(oldDB, cfg.DBPath); err != nil {
+				return err
+			}
+			// Los archivos WAL/SHM de la sesión anterior no son válidos tras el
+			// renombrado; se descartan para forzar una reconstrucción limpia.
+			for _, suffix := range []string{"-wal", "-shm"} {
+				_ = os.Remove(oldDB + suffix)
+			}
+			logger.Info("base de datos movida", "de", oldDB, "a", cfg.DBPath)
+		}
+	}
+	oldAttach := filepath.Join(cfg.DataDir, "attachments")
+	if entries, err := os.ReadDir(oldAttach); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			id, err := strconv.ParseInt(e.Name(), 10, 64)
+			if err != nil {
+				continue // no es una carpeta de ticket: se ignora
+			}
+			src := filepath.Join(oldAttach, e.Name())
+			dst := cfg.AttachDir(id)
+			if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+				return err
+			}
+			if _, err := os.Stat(dst); err == nil {
+				continue
+			}
+			if err := os.Rename(src, dst); err != nil {
+				return fmt.Errorf("mover adjuntos del ticket %s: %w", e.Name(), err)
+			}
+			logger.Info("adjuntos movidos", "ticket", e.Name(), "a", dst)
+		}
+		_ = os.Remove(oldAttach)
+	}
+	return nil
+}
+
 func bootstrapAdmin(logger *slog.Logger, st *store.Store, opts options) error {
 	n, err := st.CountUsers()
 	if err != nil {
@@ -161,18 +304,17 @@ func bootstrapAdmin(logger *slog.Logger, st *store.Store, opts options) error {
 	if n > 0 {
 		return nil
 	}
-	generated := auth.NewToken()[:16]
-	hash, err := auth.HashPassword(generated)
+	hash, err := auth.HashPassword("admin123")
 	if err != nil {
 		return err
 	}
-	user, err := st.CreateUser("admin@localhost", "Administrador", model.RoleAdmin, hash)
+	user, err := st.CreateUser("admin", "Administrador", model.RoleAdmin, hash)
 	if err != nil {
 		return err
 	}
 	st.Audit(nil, "user.bootstrap", "user", user.ID, "administrador inicial")
-	logger.Warn("administrador inicial creado con contraseña aleatoria")
-	fmt.Printf("\n  Administrador creado:\n    usuario:    admin@localhost\n    contraseña: %s\n  Cámbiala en /me o crea otro con -create-admin.\n\n", generated)
+	logger.Warn("administrador inicial creado con credenciales por defecto admin/admin123; cámbiala cuanto antes")
+	fmt.Printf("\n  Administrador creado (credenciales por defecto):\n    usuario:    admin\n    contraseña: admin123\n  Cámbiala cuanto antes en Mi cuenta (/me).\n\n")
 	return nil
 }
 

@@ -6,10 +6,31 @@
 
 <div class="kpis">
   <a class="kpi" href="/tickets?status="><span class="kpi-num">{{.D.OpenTotal}}</span><span class="kpi-lbl">Tickets abiertos</span></a>
-  <a class="kpi warn" href="/tickets?assignee=-1"><span class="kpi-num">{{.D.Unassigned}}</span><span class="kpi-lbl">Sin asignar</span></a>
+  <a class="kpi warn" href="/tickets?assignee=none"><span class="kpi-num">{{.D.Unassigned}}</span><span class="kpi-lbl">Sin asignar</span></a>
   <a class="kpi bad" href="/tickets?breached=1"><span class="kpi-num">{{.D.Breached}}</span><span class="kpi-lbl">SLA incumplido</span></a>
   <a class="kpi ok" href="/tickets?status=resolved"><span class="kpi-num">{{.D.ResolvedToday}}</span><span class="kpi-lbl">Resueltos hoy</span></a>
+  <div class="kpi"><span class="kpi-num">{{.D.CreatedToday}}</span><span class="kpi-lbl">Creados hoy</span></div>
+  <div class="kpi {{if lt .D.SLACompliance 90.0}}warn{{else}}ok{{end}}"><span class="kpi-num">{{printf "%.0f%%" .D.SLACompliance}}</span><span class="kpi-lbl">Cumplimiento SLA (30d)</span></div>
   <div class="kpi"><span class="kpi-num">{{humanDuration (durationMin .D.AvgResolveMin)}}</span><span class="kpi-lbl">Tiempo medio resolución</span></div>
+  <div class="kpi"><span class="kpi-num">{{humanDuration (durationMin .D.AvgFirstRespMin)}}</span><span class="kpi-lbl">Tiempo medio 1ª respuesta</span></div>
+</div>
+
+<div class="card">
+  <h3>Actividad de los últimos 7 días</h3>
+  <table class="table">
+    <thead><tr><th>Día</th><th>Creados</th><th>Resueltos</th></tr></thead>
+    <tbody>
+    {{range .D.Open7d}}
+      <tr>
+        <td>{{.Day}}</td>
+        <td class="num">{{.Count}}</td>
+        <td class="num">{{index $.Resolved7dMap .Day}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="3" class="empty">Sin actividad en los últimos 7 días.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
 </div>
 
 <div class="layout">

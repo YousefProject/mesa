@@ -208,3 +208,8 @@ dl.meta { display: grid; grid-template-columns: auto 1fr; gap: .25rem .7rem; fon
   .layout { grid-template-columns: 1fr; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
+
+.quick-filters { display: flex; flex-wrap: wrap; gap: .45rem; margin: .7rem 0 1rem; }
+.chip { display: inline-block; padding: .22rem .7rem; border-radius: 999px; border: 1px solid #30363d; color: #adbac7; font-size: .82rem; text-decoration: none; background: #0d1117; }
+.chip:hover { border-color: #58a6ff; color: #58a6ff; }
+.chip.on { background: #1f6feb; border-color: #1f6feb; color: #fff; }

@@ -8,8 +8,8 @@
       <h3>Datos</h3>
       <label>Nombre</label>
       <input type="text" name="name" value="{{.User.Name}}" required>
-      <label>Correo</label>
-      <input type="email" value="{{.User.Email}}" disabled>
+      <label>Usuario o correo</label>
+      <input type="text" name="email" value="{{.User.Email}}" required>
       <label>Rol</label>
       <input type="text" value="{{roleLabel .User.Role}}" disabled>
       <div class="actions"><button class="btn btn-primary" type="submit">Guardar</button></div>

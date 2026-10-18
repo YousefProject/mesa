@@ -16,18 +16,38 @@ func (s *Server) loadSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(auth.SessionCookie)
 		if err != nil || cookie.Value == "" {
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(s.anonCSRF(w, r)))
 			return
 		}
 		sess, user, err := s.store.Session(cookie.Value)
 		if err != nil {
 			s.clearCookie(w)
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(s.anonCSRF(w, r)))
 			return
 		}
 		ctx := auth.WithIdentity(r.Context(), &auth.Identity{User: user, CSRF: sess.CSRF})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (s *Server) anonCSRF(w http.ResponseWriter, r *http.Request) context.Context {
+	token := ""
+	if c, err := r.Cookie(auth.CSRFCookie); err == nil && c.Value != "" {
+		token = c.Value
+	}
+	if token == "" {
+		token = auth.NewToken()
+		http.SetCookie(w, &http.Cookie{
+			Name:     auth.CSRFCookie,
+			Value:    token,
+			Path:     "/",
+			MaxAge:   int(s.cfg.SessionTTL.Seconds()),
+			HttpOnly: false,
+			Secure:   s.cfg.CookieSecure,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+	return auth.WithIdentity(r.Context(), &auth.Identity{User: nil, CSRF: token})
 }
 
 func (s *Server) csrfProtect(next http.Handler) http.Handler {
@@ -36,8 +56,8 @@ func (s *Server) csrfProtect(next http.Handler) http.Handler {
 			want := auth.CSRFToken(r.Context())
 			got := r.Header.Get("X-CSRF-Token")
 			if got == "" {
-				_ = r.ParseForm()
-				got = r.PostFormValue("csrf")
+				// FormValue parsea también bodies multipart (adjuntos).
+				got = r.FormValue("csrf")
 			}
 			if want == "" || got != want {
 				http.Error(w, "token CSRF inválido", http.StatusForbidden)
@@ -148,10 +168,4 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, userID int64) err
 	}
 	s.setCookie(w, token, expires)
 	return nil
-}
-
-type ctxKeyFlash struct{}
-
-func withFlash(ctx context.Context, msg string) context.Context {
-	return context.WithValue(ctx, ctxKeyFlash{}, msg)
 }

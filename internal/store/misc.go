@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/YousefProject/servicedesk/internal/model"
 )
@@ -239,5 +240,54 @@ func (s *Store) Dashboard() (*model.Dashboard, error) {
 		return nil, err
 	}
 	d.AvgResolveMin = avg.Float64
+
+	today := now().Truncate(24 * time.Hour)
+	if err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM tickets WHERE created_at >= ?`, dbTime(today)).Scan(&d.CreatedToday); err != nil {
+		return nil, err
+	}
+	if err := s.db.QueryRow(
+		`SELECT AVG((julianday(first_response) - julianday(created_at)) * 1440)
+		   FROM tickets WHERE first_response IS NOT NULL`).Scan(&avg); err != nil {
+		return nil, err
+	}
+	d.AvgFirstRespMin = avg.Float64
+
+	// Cumplimiento SLA: resueltos en los últimos 30 días sin incumplir plazo.
+	if err := s.db.QueryRow(
+		`SELECT CASE WHEN COUNT(*) = 0 THEN 100.0 ELSE
+		        100.0 * SUM(CASE WHEN sla_breached = 0 THEN 1 ELSE 0 END) / COUNT(*) END
+		   FROM tickets WHERE resolved_at >= ?`,
+		dbTime(today.AddDate(0, 0, -30))).Scan(&d.SLACompliance); err != nil {
+		return nil, err
+	}
+
+	if d.Open7d, err = s.dayCounts(
+		`SELECT substr(created_at, 1, 10) AS day, COUNT(*) FROM tickets
+		  WHERE created_at >= ? GROUP BY day ORDER BY day`, today.AddDate(0, 0, -6)); err != nil {
+		return nil, err
+	}
+	if d.Resolved7d, err = s.dayCounts(
+		`SELECT substr(resolved_at, 1, 10) AS day, COUNT(*) FROM tickets
+		  WHERE resolved_at >= ? GROUP BY day ORDER BY day`, today.AddDate(0, 0, -6)); err != nil {
+		return nil, err
+	}
 	return d, nil
+}
+
+func (s *Store) dayCounts(query string, since time.Time) ([]model.DayCount, error) {
+	rows, err := s.db.Query(query, dbTime(since))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.DayCount
+	for rows.Next() {
+		var dc model.DayCount
+		if err := rows.Scan(&dc.Day, &dc.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, dc)
+	}
+	return out, rows.Err()
 }

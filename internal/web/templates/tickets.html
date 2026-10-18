@@ -6,6 +6,7 @@
 
 <form class="filters card" method="get" action="/tickets">
   <input type="search" name="q" placeholder="Buscar ref, asunto o descripción" value="{{.Filter.Query}}">
+  <button class="btn btn-primary" type="submit">Buscar</button>
   <select name="status">
     <option value="">Todos los estados</option>
     {{range .StatusOptions}}
@@ -27,7 +28,7 @@
   {{if .Staff}}
   <select name="assignee">
     <option value="">Todos los asignados</option>
-    <option value="-1" {{if .Filter.Unassigned}}selected{{end}}>Sin asignar</option>
+    <option value="none" {{if .Filter.Unassigned}}selected{{end}}>Sin asignar</option>
     {{range .Staff}}
     <option value="{{.ID}}" {{if ptrEq $.Filter.AssigneeID .ID}}selected{{end}}>{{.Name}}</option>
     {{end}}
@@ -40,6 +41,22 @@
   <button class="btn" type="submit">Filtrar</button>
   <a class="btn btn-ghost" href="/tickets">Limpiar</a>
 </form>
+
+<div class="quick-filters">
+  <a class="chip {{if and (eq .Filter.Status "") (not .Filter.Unassigned) (not .Filter.Breached)}}on{{end}}" href="/tickets">Todos</a>
+  {{if .User}}
+  <a class="chip" href="/tickets?assignee={{.User.ID}}">Asignados a mí</a>
+  {{end}}
+  {{if .Staff}}
+  <a class="chip {{if .Filter.Unassigned}}on{{end}}" href="/tickets?assignee=none">Sin asignar</a>
+  {{end}}
+  <a class="chip {{if .Filter.Breached}}on{{end}}" href="/tickets?breached=1">SLA incumplido</a>
+  <a class="chip {{if eq .Filter.Status "new"}}on{{end}}" href="/tickets?status=new">Nuevos</a>
+  <a class="chip {{if eq .Filter.Status "open"}}on{{end}}" href="/tickets?status=open">Abiertos</a>
+  <a class="chip {{if eq .Filter.Status "pending"}}on{{end}}" href="/tickets?status=pending">Pendientes</a>
+  <a class="chip {{if eq .Filter.Status "resolved"}}on{{end}}" href="/tickets?status=resolved">Resueltos</a>
+  <a class="chip {{if eq .Filter.Status "closed"}}on{{end}}" href="/tickets?status=closed">Cerrados</a>
+</div>
 
 <div class="card">
   <table class="table">

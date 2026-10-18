@@ -1,0 +1,41 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Copia de seguridad</h1>
+  <nav class="tabs">
+    <a href="/admin/users">Usuarios</a>
+    <a href="/admin/queues">Colas</a>
+    <a href="/admin/sla">SLA</a>
+    <a href="/admin/audit">Auditoría</a>
+    <a href="/admin/backup" class="on">Copia</a>
+  </nav>
+</div>
+
+{{if .Error}}<div class="flash err">{{.Error}}</div>{{end}}
+{{if .Flash}}<div class="flash ok">{{.Flash}}</div>{{end}}
+
+<div class="card">
+  <h3>Exportar</h3>
+  <p class="muted">Descarga un ZIP con el snapshot JSON de cada ticket y sus adjuntos
+    (<span class="mono">manifest.json</span> + <span class="mono">tickets/&lt;id&gt;/</span>).
+    Los snapshots se regeneran antes de empaquetarlos.</p>
+  <a class="btn btn-primary" href="/admin/backup/export">Descargar copia (.zip)</a>
+</div>
+
+<div class="card">
+  <h3>Importar</h3>
+  <p class="muted">Restaura los tickets del ZIP en la base de datos y en
+    <span class="mono">data/tickets/&lt;id&gt;/</span>. Los IDs de ticket se conservan;
+    los usuarios y colas que no existan se crean como marcadores inactivos.</p>
+  <form method="post" action="/admin/backup/import" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="file" name="backup" accept=".zip" required>
+    <label class="check">
+      <input type="checkbox" name="overwrite" value="1">
+      Reemplazar tickets existentes con el mismo ID
+    </label>
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">Importar copia</button>
+    </div>
+  </form>
+</div>
+{{end}}

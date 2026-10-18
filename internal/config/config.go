@@ -22,18 +22,42 @@ func (s SMTP) Enabled() bool { return strings.TrimSpace(s.Host) != "" }
 
 func (s SMTP) Addr() string { return fmt.Sprintf("%s:%d", s.Host, s.Port) }
 
+// Config centraliza la configuración de la aplicación.
+// Rutas de datos: cada componente vive en su propia subcarpeta para poder
+// aislarlo en migraciones y facilitar su auditoría:
+//
+//	data/
+//	  db/            → base de datos SQLite (cuenta: usuarios, tickets, etc.)
+//	  tickets/<id>/  → por ticket: snapshot.json (estado completo) y attachments/
+//	  logs/          → logs de la aplicación
 type Config struct {
 	Addr         string
 	BaseURL      string
 	DataDir      string
 	DBPath       string
-	AttachDir    string
+	TicketsDir   string
 	AllowSignup  bool
 	SessionTTL   time.Duration
 	CookieSecure bool
 	TrustProxy   bool
 	MaxUploadMB  int64
 	SMTP         SMTP
+}
+
+// TicketDir devuelve la subcarpeta de un ticket: <TicketsDir>/<id>.
+// Cada ticket se aísla en su propia carpeta para auditoría y migraciones.
+func (c Config) TicketDir(id int64) string {
+	return filepath.Join(c.TicketsDir, strconv.FormatInt(id, 10))
+}
+
+// AttachDir devuelve la carpeta de adjuntos de un ticket.
+func (c Config) AttachDir(id int64) string {
+	return filepath.Join(c.TicketDir(id), "attachments")
+}
+
+// SnapshotPath devuelve la ruta del snapshot JSON de un ticket.
+func (c Config) SnapshotPath(id int64) string {
+	return filepath.Join(c.TicketDir(id), "snapshot.json")
 }
 
 func Load() (Config, error) {
@@ -59,12 +83,13 @@ func Load() (Config, error) {
 	if strings.HasPrefix(addr, ":") {
 		baseURL = "http://localhost" + addr
 	}
+	ticketsDir := filepath.Join(abs, "tickets")
 	return Config{
 		Addr:         addr,
 		BaseURL:      env("SD_BASE_URL", baseURL),
 		DataDir:      abs,
-		DBPath:       filepath.Join(abs, "servicedesk.db"),
-		AttachDir:    filepath.Join(abs, "attachments"),
+		DBPath:       filepath.Join(abs, "db", "servicedesk.db"),
+		TicketsDir:   ticketsDir,
 		AllowSignup:  envBool("SD_ALLOW_SIGNUP", true),
 		SessionTTL:   ttl,
 		CookieSecure: envBool("SD_COOKIE_SECURE", false),

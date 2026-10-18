@@ -14,6 +14,7 @@ import (
 )
 
 const SessionCookie = "sd_session"
+const CSRFCookie = "sd_csrf"
 
 var (
 	ErrInvalidCredentials = errors.New("correo o contraseña incorrectos")

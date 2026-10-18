@@ -10,11 +10,12 @@ import (
 
 type dashboardView struct {
 	base
-	D          *model.Dashboard
-	Recent     []model.Ticket
-	Mine       []model.Ticket
-	Statuses   []model.Status
-	Priorities []model.Priority
+	D             *model.Dashboard
+	Recent        []model.Ticket
+	Mine          []model.Ticket
+	Statuses      []model.Status
+	Priorities    []model.Priority
+	Resolved7dMap map[string]int
 }
 
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
@@ -55,13 +56,18 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Error("tickets recientes", "err", err)
 	}
+	resolvedByDay := map[string]int{}
+	for _, dc := range d.Resolved7d {
+		resolvedByDay[dc.Day] = dc.Count
+	}
 	s.page(w, r, http.StatusOK, "dashboard.html", dashboardView{
-		base:       s.baseView(r, "Panel"),
-		D:          d,
-		Recent:     recent,
-		Mine:       mine,
-		Statuses:   model.Statuses(),
-		Priorities: model.Priorities(),
+		base:          s.baseView(r, "Panel"),
+		D:             d,
+		Recent:        recent,
+		Mine:          mine,
+		Statuses:      model.Statuses(),
+		Priorities:    model.Priorities(),
+		Resolved7dMap: resolvedByDay,
 	})
 }
 

@@ -123,12 +123,24 @@ func (s *Store) SetUserActive(id int64, active bool) error {
 	return nil
 }
 
-func (s *Store) UpdateUserProfile(id int64, name string) error {
+func (s *Store) UpdateUserProfile(id int64, name, email string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return fmt.Errorf("el nombre no puede estar vacío")
 	}
-	_, err := s.db.Exec(`UPDATE users SET name = ? WHERE id = ?`, name, id)
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return fmt.Errorf("el usuario o correo no puede estar vacío")
+	}
+	var exists int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM users WHERE email = ? COLLATE NOCASE AND id <> ?`, email, id).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists > 0 {
+		return fmt.Errorf("ya existe otra cuenta con ese usuario o correo")
+	}
+	_, err = s.db.Exec(`UPDATE users SET name = ?, email = ? WHERE id = ?`, name, email, id)
 	return err
 }
 

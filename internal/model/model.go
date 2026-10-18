@@ -98,28 +98,28 @@ type Queue struct {
 }
 
 type Ticket struct {
-	ID            int64
-	Ref           string
-	Subject       string
-	Description   string
-	Status        Status
-	Priority      Priority
-	QueueID       *int64
-	RequesterID   int64
-	AssigneeID    *int64
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	DueResponse   *time.Time
-	DueResolution *time.Time
-	FirstResponse *time.Time
-	ResolvedAt    *time.Time
-	ClosedAt      *time.Time
-	SLABreached   bool
+	ID            int64      `json:"id"`
+	Ref           string     `json:"ref"`
+	Subject       string     `json:"subject"`
+	Description   string     `json:"description"`
+	Status        Status     `json:"status"`
+	Priority      Priority   `json:"priority"`
+	QueueID       *int64     `json:"queue_id,omitempty"`
+	RequesterID   int64      `json:"requester_id"`
+	AssigneeID    *int64     `json:"assignee_id,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	DueResponse   *time.Time `json:"due_response_at,omitempty"`
+	DueResolution *time.Time `json:"due_resolution_at,omitempty"`
+	FirstResponse *time.Time `json:"first_response_at,omitempty"`
+	ResolvedAt    *time.Time `json:"resolved_at,omitempty"`
+	ClosedAt      *time.Time `json:"closed_at,omitempty"`
+	SLABreached   bool       `json:"sla_breached"`
 
-	QueueName     string
-	RequesterName string
-	RequesterMail string
-	AssigneeName  string
+	QueueName     string `json:"queue_name,omitempty"`
+	RequesterName string `json:"requester_name,omitempty"`
+	RequesterMail string `json:"requester_mail,omitempty"`
+	AssigneeName  string `json:"assignee_name,omitempty"`
 }
 
 func (t Ticket) ResponseBreached(now time.Time) bool {
@@ -168,41 +168,41 @@ func progress(start, due time.Time, done *time.Time, now time.Time) float64 {
 }
 
 type Comment struct {
-	ID        int64
-	TicketID  int64
-	AuthorID  int64
-	Body      string
-	Internal  bool
-	CreatedAt time.Time
+	ID        int64     `json:"id"`
+	TicketID  int64     `json:"ticket_id"`
+	AuthorID  int64     `json:"author_id"`
+	Body      string    `json:"body"`
+	Internal  bool      `json:"internal"`
+	CreatedAt time.Time `json:"created_at"`
 
-	AuthorName string
-	AuthorRole Role
+	AuthorName string `json:"author_name,omitempty"`
+	AuthorRole Role   `json:"author_role,omitempty"`
 }
 
 type Attachment struct {
-	ID         int64
-	TicketID   int64
-	CommentID  *int64
-	UploaderID int64
-	Filename   string
-	Size       int64
-	MIME       string
-	StoredPath string
-	CreatedAt  time.Time
+	ID         int64     `json:"id"`
+	TicketID   int64     `json:"ticket_id"`
+	CommentID  *int64    `json:"comment_id,omitempty"`
+	UploaderID int64     `json:"uploader_id"`
+	Filename   string    `json:"filename"`
+	Size       int64     `json:"size"`
+	MIME       string    `json:"mime"`
+	StoredPath string    `json:"stored_path"`
+	CreatedAt  time.Time `json:"created_at"`
 
-	UploaderName string
+	UploaderName string `json:"uploader_name,omitempty"`
 }
 
 type AuditEvent struct {
-	ID        int64
-	ActorID   *int64
-	Action    string
-	Entity    string
-	EntityID  int64
-	Details   string
-	CreatedAt time.Time
+	ID        int64     `json:"id"`
+	ActorID   *int64    `json:"actor_id,omitempty"`
+	Action    string    `json:"action"`
+	Entity    string    `json:"entity"`
+	EntityID  int64     `json:"entity_id"`
+	Details   string    `json:"details"`
+	CreatedAt time.Time `json:"created_at"`
 
-	ActorName string
+	ActorName string `json:"actor_name,omitempty"`
 }
 
 type SLAPolicy struct {
@@ -212,15 +212,26 @@ type SLAPolicy struct {
 }
 
 type Dashboard struct {
-	OpenTotal     int
-	Unassigned    int
-	Breached      int
-	ResolvedToday int
-	ByStatus      map[Status]int
-	ByPriority    map[Priority]int
-	ByQueue       []QueueCount
-	ByAgent       []AgentLoad
-	AvgResolveMin float64
+	OpenTotal       int
+	Unassigned      int
+	Breached        int
+	ResolvedToday   int
+	CreatedToday    int
+	Open7d          []DayCount
+	Resolved7d      []DayCount
+	SLACompliance   float64 // % de tickets resueltos sin incumplir SLA (últimos 30 días)
+	ByStatus        map[Status]int
+	ByPriority      map[Priority]int
+	ByQueue         []QueueCount
+	ByAgent         []AgentLoad
+	AvgResolveMin   float64
+	AvgFirstRespMin float64
+}
+
+// DayCount es una fila de la tabla de actividad diaria del dashboard.
+type DayCount struct {
+	Day   string `json:"day"`
+	Count int    `json:"count"`
 }
 
 type QueueCount struct {

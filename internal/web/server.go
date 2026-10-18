@@ -8,25 +8,30 @@ import (
 	"github.com/YousefProject/servicedesk/internal/auth"
 	"github.com/YousefProject/servicedesk/internal/config"
 	"github.com/YousefProject/servicedesk/internal/mail"
+	"github.com/YousefProject/servicedesk/internal/snapshot"
 	"github.com/YousefProject/servicedesk/internal/store"
 )
 
 type Server struct {
 	cfg     config.Config
-	store   *store.Store
+	store   store.Repo
 	mail    mail.Sender
 	render  *Renderer
 	logger  *slog.Logger
 	version string
 	mux     *http.ServeMux
+	snaps   *snapshot.Writer
 }
 
-func New(cfg config.Config, st *store.Store, sender mail.Sender, logger *slog.Logger, version string) (*Server, error) {
+func New(cfg config.Config, st store.Repo, sender mail.Sender, logger *slog.Logger, version string) (*Server, error) {
 	r, err := NewRenderer()
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{cfg: cfg, store: st, mail: sender, render: r, logger: logger, version: version, mux: http.NewServeMux()}
+	s := &Server{
+		cfg: cfg, store: st, mail: sender, render: r, logger: logger, version: version,
+		mux: http.NewServeMux(), snaps: snapshot.New(st, cfg.TicketsDir, logger),
+	}
 	s.routes()
 	return s, nil
 }
@@ -76,6 +81,9 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /admin/sla", s.handleAdminSLA)
 	m.HandleFunc("POST /admin/sla", s.handleAdminSLASave)
 	m.HandleFunc("GET /admin/audit", s.handleAdminAudit)
+	m.HandleFunc("GET /admin/backup", s.handleAdminBackupPage)
+	m.HandleFunc("GET /admin/backup/export", s.handleAdminBackupExport)
+	m.HandleFunc("POST /admin/backup/import", s.handleAdminBackupImport)
 }
 
 func (s *Server) baseView(r *http.Request, title string) base {

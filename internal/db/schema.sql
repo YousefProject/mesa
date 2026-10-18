@@ -53,6 +53,13 @@ CREATE INDEX IF NOT EXISTS idx_tickets_assignee ON tickets(assignee_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_queue ON tickets(queue_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_requester ON tickets(requester_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_updated ON tickets(updated_at);
+CREATE INDEX IF NOT EXISTS idx_tickets_created ON tickets(created_at);
+CREATE INDEX IF NOT EXISTS idx_tickets_status_updated ON tickets(status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_tickets_assignee_status ON tickets(assignee_id, status);
+CREATE INDEX IF NOT EXISTS idx_tickets_requester_updated ON tickets(requester_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_tickets_sla_breached ON tickets(sla_breached) WHERE sla_breached = 1;
+CREATE INDEX IF NOT EXISTS idx_tickets_due_response ON tickets(due_response_at) WHERE due_response_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tickets_due_resolution ON tickets(due_resolution_at) WHERE due_resolution_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS comments (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +70,7 @@ CREATE TABLE IF NOT EXISTS comments (
     created_at TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_comments_ticket ON comments(ticket_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_comments_author ON comments(author_id);
 
 CREATE TABLE IF NOT EXISTS attachments (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,6 +96,8 @@ CREATE TABLE IF NOT EXISTS audit_events (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_events(entity, entity_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_events(action, created_at);
 
 CREATE TABLE IF NOT EXISTS sla_policies (
     priority           TEXT PRIMARY KEY,

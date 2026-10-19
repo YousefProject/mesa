@@ -66,51 +66,59 @@
 {{define "ticketSide"}}
 <aside class="side">
   {{if .CanTriage}}
-  <form class="card" hx-post="/tickets/{{.Ticket.ID}}/status" hx-target="#side" hx-swap="outerHTML">
+  <form class="card stack" method="post" action="/tickets/{{.Ticket.ID}}/status">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <label>Estado</label>
-    <select name="status" onchange="this.form.requestSubmit()">
+    <select name="status">
       {{range .Statuses}}
       <option value="{{.}}" {{if eq . $.Ticket.Status}}selected{{end}}>{{statusLabel .}}</option>
       {{end}}
     </select>
-    <noscript><button class="btn btn-sm" type="submit">Guardar</button></noscript>
+    <div class="actions">
+      <button class="btn btn-primary btn-sm" type="submit">Actualizar estado</button>
+    </div>
   </form>
 
-  <form class="card" hx-post="/tickets/{{.Ticket.ID}}/priority" hx-target="#side" hx-swap="outerHTML">
+  <form class="card stack" method="post" action="/tickets/{{.Ticket.ID}}/priority">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <label>Prioridad</label>
-    <select name="priority" onchange="this.form.requestSubmit()">
+    <select name="priority">
       {{range .Priorities}}
       <option value="{{.}}" {{if eq . $.Ticket.Priority}}selected{{end}}>{{prioLabel .}}</option>
       {{end}}
     </select>
-    <noscript><button class="btn btn-sm" type="submit">Guardar</button></noscript>
+    <div class="actions">
+      <button class="btn btn-sm" type="submit">Guardar prioridad</button>
+    </div>
   </form>
 
-  <form class="card" hx-post="/tickets/{{.Ticket.ID}}/assign" hx-target="#side" hx-swap="outerHTML">
+  <form class="card stack" method="post" action="/tickets/{{.Ticket.ID}}/assign">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <label>Asignado</label>
-    <select name="assignee_id" onchange="this.form.requestSubmit()">
+    <select name="assignee_id">
       <option value="0" {{if not .Ticket.AssigneeID}}selected{{end}}>sin asignar</option>
       <option value="me">yo</option>
       {{range .Staff}}
       <option value="{{.ID}}" {{if ptrEq $.Ticket.AssigneeID .ID}}selected{{end}}>{{.Name}}</option>
       {{end}}
     </select>
-    <noscript><button class="btn btn-sm" type="submit">Guardar</button></noscript>
+    <div class="actions">
+      <button class="btn btn-sm" type="submit">Guardar asignado</button>
+    </div>
   </form>
 
-  <form class="card" hx-post="/tickets/{{.Ticket.ID}}/queue" hx-target="#side" hx-swap="outerHTML">
+  <form class="card stack" method="post" action="/tickets/{{.Ticket.ID}}/queue">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <label>Cola</label>
-    <select name="queue_id" onchange="this.form.requestSubmit()">
+    <select name="queue_id">
       <option value="0" {{if not .Ticket.QueueID}}selected{{end}}>sin cola</option>
       {{range .Queues}}
       <option value="{{.ID}}" {{if ptrEq $.Ticket.QueueID .ID}}selected{{end}}>{{.Name}}</option>
       {{end}}
     </select>
-    <noscript><button class="btn btn-sm" type="submit">Guardar</button></noscript>
+    <div class="actions">
+      <button class="btn btn-sm" type="submit">Guardar cola</button>
+    </div>
   </form>
   {{end}}
 

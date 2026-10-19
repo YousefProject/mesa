@@ -39,6 +39,7 @@ type Repo interface {
 	SetPriority(id int64, p model.Priority, dueResponse, dueResolution time.Time) error
 	SetAssignee(id int64, assignee *int64) error
 	SetQueue(id int64, queue *int64) error
+	UpdateTicket(id int64, subject, description string) error
 	MarkFirstResponse(id int64) error
 	BreachedTickets() ([]model.Ticket, error)
 	MarkSLABreached(id int64) error
@@ -62,6 +63,13 @@ type Repo interface {
 	SLAPolicy(p model.Priority) (model.SLAPolicy, error)
 	UpdateSLAPolicy(p model.SLAPolicy) error
 	Dashboard() (*model.Dashboard, error)
+
+	// Plantillas de ticket (templates.go)
+	Templates(includeInactive bool) ([]model.TicketTemplate, error)
+	TemplateByID(id int64) (*model.TicketTemplate, error)
+	CreateTemplate(in NewTemplate) (*model.TicketTemplate, error)
+	UpdateTemplate(id int64, in NewTemplate) error
+	DeleteTemplate(id int64) error
 
 	// Auditoría (store.go)
 	Audit(actorID *int64, action, entity string, entityID int64, details string)

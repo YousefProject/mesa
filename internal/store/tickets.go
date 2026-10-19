@@ -257,6 +257,16 @@ func (s *Store) SetQueue(id int64, queue *int64) error {
 	return err
 }
 
+// UpdateTicket actualiza asunto y descripción (únicos campos editables del
+// cuerpo del ticket; estado/prioridad/cola/asignado tienen sus endpoints).
+func (s *Store) UpdateTicket(id int64, subject, description string) error {
+	_, err := s.db.Exec(
+		`UPDATE tickets SET subject = ?, description = ?, updated_at = ? WHERE id = ?`,
+		strings.TrimSpace(subject), strings.TrimSpace(description), dbTime(now()), id,
+	)
+	return err
+}
+
 func (s *Store) MarkFirstResponse(id int64) error {
 	_, err := s.db.Exec(
 		`UPDATE tickets SET first_response = COALESCE(first_response, ?) WHERE id = ?`,

@@ -171,12 +171,15 @@ Tabla día a día con los tickets **creados** y **resueltos**.
 ### 5.1 Crear un ticket
 
 1. Pulsa **+ Nuevo ticket** (barra superior o desde el panel).
-2. Rellena:
+2. (Opcional) Elige una **plantilla** en el desplegable superior y pulsa
+   **Cargar plantilla**: precarga asunto, descripción, prioridad y cola.
+   Ver [§9.3 Plantillas](#93-plantillas-admintemplates).
+3. Rellena o ajusta:
    - **Asunto** (obligatorio, mínimo 3 caracteres).
    - **Descripción** (opcional pero recomendada: contexto, pasos para reproducir…).
    - **Prioridad** (por defecto: normal).
    - **Cola** y **asignado** (solo el staff puede asignarlos al crear).
-3. Pulsa **Crear ticket**. Se te redirige al detalle y el staff recibe una
+4. Pulsa **Crear ticket**. Se te redirige al detalle y el staff recibe una
    notificación por correo.
 
 ### 5.2 Detalle de un ticket (`/tickets/<id>`)
@@ -187,15 +190,19 @@ auditoría del ticket.
 
 ### 5.3 Cambiar estado / prioridad / cola / asignación (staff)
 
-En el panel lateral derecho de cada ticket hay formularios con desplegables:
+En el panel lateral derecho de cada ticket hay formularios con desplegables y
+**botones de confirmación explícitos** (cada campo se guarda con su botón):
 
-- **Estado**: al pasarlo a `resolved` se registra la fecha de resolución, y a
-  `closed` también la de cierre. Si vuelves a un estado abierto
-  (new/assigned/in_progress/waiting), ambas fechas se limpian.
-- **Prioridad**: recalcula automáticamente los plazos SLA desde la fecha de creación.
-- **Asignado**: incluye la opción **"Sin asignar"** y "Yo" (asignarme). Al asignar
-  a alguien, esa persona recibe un correo.
-- **Cola**: mueve el ticket a otra cola.
+- **Estado** + botón **Actualizar estado**: al pasarlo a `resolved` se registra
+  la fecha de resolución, y a `closed` también la de cierre. Si vuelves a un
+  estado abierto (new/assigned/in_progress/waiting), ambas fechas se limpian.
+  Tras guardar, la página se recarga completa y el indicador de estado de la
+  cabecera refleja el cambio.
+- **Prioridad** + **Guardar prioridad**: recalcula automáticamente los plazos
+  SLA desde la fecha de creación.
+- **Asignado** + **Guardar asignado**: incluye la opción **"Sin asignar"** y
+  "Yo" (asignarme). Al asignar a alguien, esa persona recibe un correo.
+- **Cola** + **Guardar cola**: mueve el ticket a otra cola.
 
 Todos los cambios quedan en la auditoría del ticket y regeneran su snapshot.
 
@@ -214,6 +221,27 @@ new → assigned → in_progress → (waiting ↔ in_progress) → resolved → 
 - Staff: ve todos los tickets.
 - Solicitante: solo ve los que él creó (el servidor lo aplica, no es solo
   ocultamiento en la interfaz).
+
+### 5.6 Editar y eliminar tickets
+
+En la cabecera de cada ticket aparecen los botones **Editar** y **Eliminar**
+cuando tienes permiso sobre ese ticket:
+
+| Acción | Staff (admin/agente) | Solicitante |
+|---|---|---|
+| **Editar** asunto y descripción | Cualquier ticket | Solo los suyos |
+| **Eliminar** | Cualquier ticket | Solo los suyos |
+| Cambio de estado/prioridad/cola/asignado | Sí | No |
+
+- **Editar** (`/tickets/<id>/edit`) modifica asunto y descripción. El resto de
+  campos se cambian desde el panel lateral (solo staff). Cada edición queda en
+  la auditoría (`ticket.update`) con el valor anterior → nuevo.
+- **Eliminar** pide confirmación antes de borrar. Borra el ticket, sus
+  comentarios y adjuntos (BD y `data/tickets/<id>/`); la eliminación queda
+  registrada en la auditoría global (`ticket.delete`, con referencia, asunto y
+  autor original) como rastro permanente.
+
+Las peticiones sin permiso reciben error 403 del propio servidor.
 
 ---
 
@@ -306,8 +334,8 @@ prioridad, que recalcula desde la fecha de creación).
 
 ## 9. Administración
 
-Sección exclusiva de administradores, con pestañas: **Usuarios · Colas · SLA ·
-Auditoría · Copia · Ajustes**.
+Sección exclusiva de administradores, con pestañas: **Usuarios · Colas ·
+Plantillas · SLA · Auditoría · Copia · Ajustes**.
 
 ### 9.1 Usuarios (`/admin/users`)
 
@@ -323,30 +351,51 @@ Auditoría · Copia · Ajustes**.
 - Cada cola muestra cuántos tickets abiertos tiene.
 - Los tickets se mueven de cola desde su detalle (staff).
 
-### 9.3 SLA (`/admin/sla`)
+### 9.3 Plantillas (`/admin/templates`)
+
+Plantillas reutilizables que precargan el formulario de **Nuevo ticket**
+(estilo ManageEngine ServiceDesk): asunto, descripción, prioridad y cola.
+
+- **Crear**: nombre (único), categoría, asunto predefinido, descripción
+  (texto con la estructura que debe rellenar el usuario), prioridad, cola y
+  la casilla **Activa**.
+- **Editar**: el botón *Editar* de cada fila abre el formulario completo.
+- **Eliminar**: con confirmación; no afecta a los tickets ya creados con ella.
+- **Activar/desactivar**: desde la casilla *Activa* del formulario de edición.
+  Las inactivas no aparecen en el selector de Nuevo ticket.
+- El sistema trae 3 plantillas de ejemplo: **Soporte · Incidencia de usuario**,
+  **TI · Incidencia de infraestructura** y **Ciberseguridad · Incidente**
+  (esta última con prioridad urgente y campos tipo IOC/activos afectados).
+
+Uso: en **+ Nuevo ticket**, selecciona la plantilla y pulsa
+**Cargar plantilla**; todo se precarga y puede editarse antes de crear.
+
+### 9.4 SLA (`/admin/sla`)
 
 - Tabla editable con los minutos de respuesta y resolución por prioridad.
 
-### 9.4 Auditoría (`/admin/audit`)
+### 9.5 Auditoría (`/admin/audit`)
 
 Registro cronológico de **todas** las acciones del sistema (quién, qué, cuándo
 y detalles), por ejemplo:
 
 - `ticket.create`, `ticket.status`, `ticket.priority`, `ticket.assign`, `ticket.queue`
+- `ticket.update`, `ticket.delete`
 - `comment.create`, `attachment.create`
 - `user.create`, `user.role`, `user.active`
 - `queue.create`, `sla.update`
+- `template.create`, `template.update`, `template.delete`
 - `sla.breached`
 - `backup.export`, `backup.import`
 - `session.login`, `session.logout`
 
 La auditoría también es consultable por ticket en su página de detalle.
 
-### 9.5 Copia de seguridad (`/admin/backup`)
+### 9.6 Copia de seguridad (`/admin/backup`)
 
 Ver sección 10.
 
-### 9.6 Ajustes (`/admin/settings`)
+### 9.7 Ajustes (`/admin/settings`)
 
 Toda la configuración del servicio se edita aquí y se aplica **al instante**,
 sin reiniciar:

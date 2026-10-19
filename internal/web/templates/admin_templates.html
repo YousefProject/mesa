@@ -1,0 +1,74 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Plantillas</h1>
+  <nav class="tabs">
+    <a href="/admin/users">Usuarios</a>
+    <a href="/admin/queues">Colas</a>
+    <a href="/admin/templates" class="on">Plantillas</a>
+    <a href="/admin/sla">SLA</a>
+    <a href="/admin/audit">Auditoría</a>
+    <a href="/admin/backup">Copia</a>
+    <a href="/admin/settings">Ajustes</a>
+  </nav>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead><tr><th>Nombre</th><th>Categoría</th><th>Asunto</th><th>Prioridad</th><th>Cola</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody>
+      {{range .Templates}}
+      <tr class="{{if not .Active}}inactive{{end}}">
+        <td><strong>{{.Name}}</strong></td>
+        <td class="muted">{{.Category}}</td>
+        <td class="muted">{{.Subject}}</td>
+        <td><span class="pill {{prioClass .Priority}}">{{prioLabel .Priority}}</span></td>
+        <td>{{if .QueueName}}{{.QueueName}}{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{if .Active}}<span class="pill st-resolved">activa</span>{{else}}<span class="pill st-closed">inactiva</span>{{end}}</td>
+        <td class="actions-cell">
+          <a class="btn btn-sm" href="/admin/templates/{{.ID}}/edit">Editar</a>
+          <form method="post" action="/admin/templates/{{.ID}}/delete" class="inline"
+                onsubmit="return confirm('¿Eliminar la plantilla {{.Name}}?')">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {{else}}
+      <tr><td colspan="7" class="empty">No hay plantillas definidas.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Nueva plantilla</h3>
+  <form method="post" action="/admin/templates" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <div class="grid2">
+      <div><label>Nombre</label><input type="text" name="name" required placeholder="Ej. Soporte · Incidencia de red"></div>
+      <div><label>Categoría</label><input type="text" name="category" placeholder="Soporte, TI, Ciberseguridad…"></div>
+    </div>
+    <label>Asunto predefinido</label>
+    <input type="text" name="subject" maxlength="200" placeholder="Título con el que se creará el ticket">
+    <label>Descripción / plantilla</label>
+    <textarea name="description" rows="6" placeholder="Texto que se precargará en la descripción del ticket"></textarea>
+    <div class="grid2">
+      <div>
+        <label>Prioridad</label>
+        <select name="priority">
+          {{range .Priorities}}<option value="{{.}}" {{if eq . "normal"}}selected{{end}}>{{prioLabel .}}</option>{{end}}
+        </select>
+      </div>
+      <div>
+        <label>Cola</label>
+        <select name="queue_id">
+          <option value="">Sin cola</option>
+          {{range .Queues}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+        </select>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" name="active" value="1" checked> Activa</label>
+    <div class="actions"><button class="btn btn-primary" type="submit">Crear plantilla</button></div>
+  </form>
+</div>
+{{end}}

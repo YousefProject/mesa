@@ -8,6 +8,14 @@
     <span class="pill {{statusClass .Ticket.Status}}">{{statusLabel .Ticket.Status}}</span>
     <span class="pill {{prioClass .Ticket.Priority}}">{{prioLabel .Ticket.Priority}}</span>
     {{if (.Ticket.Breached .Now)}}<span class="pill sla-breached">SLA incumplido</span>{{end}}
+    {{if .CanEdit}}<a class="btn btn-sm" href="/tickets/{{.Ticket.ID}}/edit">Editar</a>{{end}}
+    {{if .CanDelete}}
+    <form method="post" action="/tickets/{{.Ticket.ID}}/delete" class="inline"
+          onsubmit="return confirm('¿Eliminar el ticket {{.Ticket.Ref}}? Esta acción no se puede deshacer.')">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+    </form>
+    {{end}}
   </div>
 </div>
 

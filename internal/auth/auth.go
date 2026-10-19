@@ -99,3 +99,16 @@ func CanComment(u *model.User, t *model.Ticket) bool {
 func CanTriage(u *model.User) bool { return u != nil && u.Role.IsStaff() }
 
 func CanSetInternal(u *model.User) bool { return u != nil && u.Role.IsStaff() }
+
+// CanEditTicket: el staff edita cualquier ticket; el solicitante solo los suyos.
+func CanEditTicket(u *model.User, t *model.Ticket) bool {
+	if u == nil || t == nil {
+		return false
+	}
+	return u.Role.IsStaff() || t.RequesterID == u.ID
+}
+
+// CanDeleteTicket: mismos permisos que editar.
+func CanDeleteTicket(u *model.User, t *model.Ticket) bool {
+	return CanEditTicket(u, t)
+}

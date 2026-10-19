@@ -1,0 +1,38 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Editar plantilla</h1>
+  <a class="btn btn-ghost" href="/admin/templates">Volver</a>
+</div>
+
+<form method="post" action="/admin/templates/{{.Template.ID}}/edit" class="card stack">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <div class="grid2">
+    <div><label>Nombre</label><input type="text" name="name" required value="{{.Template.Name}}"></div>
+    <div><label>Categoría</label><input type="text" name="category" value="{{.Template.Category}}"></div>
+  </div>
+  <label>Asunto predefinido</label>
+  <input type="text" name="subject" maxlength="200" value="{{.Template.Subject}}">
+  <label>Descripción / plantilla</label>
+  <textarea name="description" rows="10">{{.Template.Description}}</textarea>
+  <div class="grid2">
+    <div>
+      <label>Prioridad</label>
+      <select name="priority">
+        {{range .Priorities}}<option value="{{.}}" {{if eq . $.Template.Priority}}selected{{end}}>{{prioLabel .}}</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label>Cola</label>
+      <select name="queue_id">
+        <option value="">Sin cola</option>
+        {{range .Queues}}<option value="{{.ID}}" {{if ptrEq $.Template.QueueID .ID}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <label class="check"><input type="checkbox" name="active" value="1" {{if .Template.Active}}checked{{end}}> Activa</label>
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Guardar cambios</button>
+    <a class="btn btn-ghost" href="/admin/templates">Cancelar</a>
+  </div>
+</form>
+{{end}}

@@ -97,6 +97,22 @@ type Queue struct {
 	TicketCount int
 }
 
+// TicketTemplate es una plantilla reutilizable que precarga asunto,
+// descripción, prioridad y cola al crear un ticket.
+type TicketTemplate struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Category    string    `json:"category"`
+	Subject     string    `json:"subject"`
+	Description string    `json:"description"`
+	Priority    Priority  `json:"priority"`
+	QueueID     *int64    `json:"queue_id,omitempty"`
+	Active      bool      `json:"active"`
+	CreatedAt   time.Time `json:"created_at"`
+
+	QueueName string `json:"queue_name,omitempty"`
+}
+
 type Ticket struct {
 	ID            int64      `json:"id"`
 	Ref           string     `json:"ref"`

@@ -1,11 +1,13 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/YousefProject/servicedesk/internal/auth"
 	"github.com/YousefProject/servicedesk/internal/model"
+	"github.com/YousefProject/servicedesk/internal/store"
 )
 
 type adminUsersView struct {
@@ -213,4 +215,134 @@ func (s *Server) handleAdminAudit(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("auditoría", "err", err)
 	}
 	s.page(w, r, http.StatusOK, "admin_audit.html", adminAuditView{s.baseView(r, "Auditoría"), events})
+}
+
+type adminTemplatesView struct {
+	base
+	Templates  []model.TicketTemplate
+	Queues     []model.Queue
+	Priorities []model.Priority
+}
+
+func (s *Server) handleAdminTemplates(w http.ResponseWriter, r *http.Request) {
+	if s.requireAdmin(w, r) == nil {
+		return
+	}
+	templates, err := s.store.Templates(true)
+	if err != nil {
+		s.logger.Error("listar plantillas", "err", err)
+	}
+	queues, err := s.store.Queues()
+	if err != nil {
+		s.logger.Error("listar colas", "err", err)
+	}
+	s.page(w, r, http.StatusOK, "admin_templates.html", adminTemplatesView{
+		base:       s.baseView(r, "Plantillas"),
+		Templates:  templates,
+		Queues:     queues,
+		Priorities: model.Priorities(),
+	})
+}
+
+// templateFromForm lee los campos de una plantilla desde el formulario.
+func templateFromForm(r *http.Request) store.NewTemplate {
+	priority := model.Priority(strings.TrimSpace(r.PostFormValue("priority")))
+	if !priority.Valid() {
+		priority = model.PriorityNormal
+	}
+	return store.NewTemplate{
+		Name:        r.PostFormValue("name"),
+		Category:    r.PostFormValue("category"),
+		Subject:     r.PostFormValue("subject"),
+		Description: r.PostFormValue("description"),
+		Priority:    priority,
+		QueueID:     int64ptr(r.PostFormValue("queue_id")),
+		Active:      r.PostFormValue("active") == "1",
+	}
+}
+
+func (s *Server) handleAdminTemplateCreate(w http.ResponseWriter, r *http.Request) {
+	admin := s.requireAdmin(w, r)
+	if admin == nil {
+		return
+	}
+	tpl, err := s.store.CreateTemplate(templateFromForm(r))
+	if err != nil {
+		s.redirect(w, r, "/admin/templates?err="+qr(err.Error()))
+		return
+	}
+	s.store.Audit(&admin.ID, "template.create", "template", tpl.ID, "plantilla "+tpl.Name)
+	s.redirect(w, r, "/admin/templates?ok="+qr("plantilla creada"))
+}
+
+type adminTemplateEditView struct {
+	base
+	Template   *model.TicketTemplate
+	Queues     []model.Queue
+	Priorities []model.Priority
+}
+
+func (s *Server) handleAdminTemplateEditForm(w http.ResponseWriter, r *http.Request) {
+	if s.requireAdmin(w, r) == nil {
+		return
+	}
+	id, ok := pathID(r)
+	if !ok {
+		s.errorPage(w, r, http.StatusBadRequest, "Plantilla no válida.")
+		return
+	}
+	tpl, err := s.store.TemplateByID(id)
+	if err != nil {
+		s.errorPage(w, r, http.StatusNotFound, "Esa plantilla no existe.")
+		return
+	}
+	queues, _ := s.store.Queues()
+	s.page(w, r, http.StatusOK, "admin_template_edit.html", adminTemplateEditView{
+		base:       s.baseView(r, "Editar plantilla"),
+		Template:   tpl,
+		Queues:     queues,
+		Priorities: model.Priorities(),
+	})
+}
+
+func (s *Server) handleAdminTemplateEditSave(w http.ResponseWriter, r *http.Request) {
+	admin := s.requireAdmin(w, r)
+	if admin == nil {
+		return
+	}
+	id, ok := pathID(r)
+	if !ok {
+		s.errorPage(w, r, http.StatusBadRequest, "Plantilla no válida.")
+		return
+	}
+	in := templateFromForm(r)
+	if err := s.store.UpdateTemplate(id, in); err != nil {
+		s.redirect(w, r, "/admin/templates/"+fmt.Sprint(id)+"/edit?err="+qr(err.Error()))
+		return
+	}
+	s.store.Audit(&admin.ID, "template.update", "template", id, "plantilla "+strings.TrimSpace(in.Name))
+	s.redirect(w, r, "/admin/templates?ok="+qr("plantilla actualizada"))
+}
+
+func (s *Server) handleAdminTemplateDelete(w http.ResponseWriter, r *http.Request) {
+	admin := s.requireAdmin(w, r)
+	if admin == nil {
+		return
+	}
+	id, ok := pathID(r)
+	if !ok {
+		s.errorPage(w, r, http.StatusBadRequest, "Plantilla no válida.")
+		return
+	}
+	name := ""
+	if tpl, err := s.store.TemplateByID(id); err == nil {
+		name = tpl.Name
+	}
+	if err := s.store.DeleteTemplate(id); err != nil {
+		s.logger.Error("eliminar plantilla", "err", err)
+		s.redirect(w, r, "/admin/templates?err="+qr("no se pudo eliminar la plantilla"))
+		return
+	}
+	s.store.Audit(&admin.ID, "template.delete", "template", id, "plantilla "+name)
+	s.redirect(w, r, "/admin/templates?ok="+qr("plantilla eliminada"))
 }

@@ -5,12 +5,13 @@ Mesa de servicio (helpdesk/ticketing) web, multiusuario, en Go + SQLite + SSR + 
 ## Características
 
 - **Autenticación**: login/registro público, sesiones con CSRF (doble-submit cookie), roles (admin/agent/requester)
-- **Tickets**: creación, estados (new/assigned/in_progress/waiting/resolved/closed), prioridades (low/normal/high/urgent), colas, asignación
+- **Tickets**: creación, estados (new/assigned/in_progress/waiting/resolved/closed) con botón *Actualizar estado*, prioridades (low/normal/high/urgent), colas, asignación, **edición de asunto/descripción y eliminación** (staff: cualquiera; solicitante: los suyos)
+- **Plantillas de ticket**: CRUD en Administración › Plantillas, selector en *Nuevo ticket* que precarga asunto, descripción, prioridad y cola (semillas: Soporte, TI, Ciberseguridad)
 - **Búsqueda**: campo de texto (ref/asunto/descripción), filtros por estado/prioridad/cola/asignado/SLA y botones de búsqueda rápida
 - **SLA**: políticas por prioridad, vencimientos de respuesta y resolución, detección de incumplimiento, avisos automáticos
 - **Comunicación**: comentarios públicos e internos, adjuntos con límite configurable
 - **Panel**: dashboard con KPIs (abiertos, sin asignar, SLA incumplido, resueltos/creados hoy, cumplimiento SLA, tiempos medios), tabla de actividad 7 días, carga por agente
-- **Administración**: gestión de usuarios/colas/SLA, auditoría completa
+- **Administración**: gestión de usuarios/colas/plantillas/SLA, auditoría completa
 - **Auditoría por ticket**: cada ticket genera `data/tickets/<id>/snapshot.json` (ticket + comentarios + adjuntos + eventos) en cada mutación
 - **Copias de seguridad**: export/import de todos los tickets como ZIP (CLI y panel admin), con preservación de IDs y resolución de usuarios/colas
 - **Notificaciones**: SMTP con modo dry-run (se registran en logs si no se configura)
@@ -176,9 +177,10 @@ se lee al arrancar (dónde viven los datos).
 2. Inicia sesión con `admin` + `admin123` (cámbialas después en `/me`)
 3. Ve a `Administración > Usuarios` para crear agentes
 4. Ve a `Administración > Colas` para crear colas
-5. Configura correo y límites en `Administración > Ajustes`
-6. Los solicitantes pueden registrarse (`/signup`) o se les crea como requester
-7. El dashboard muestra SLA incumplidos y carga por agente
+5. Crea tus plantillas de ticket en `Administración > Plantillas` (hay 3 de ejemplo)
+6. Configura correo y límites en `Administración > Ajustes`
+7. Los solicitantes pueden registrarse (`/signup`) o se les crea como requester
+8. El dashboard muestra SLA incumplidos y carga por agente
 
 ## Sistema de SLA
 

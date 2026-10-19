@@ -114,6 +114,45 @@ INSERT OR IGNORE INTO sla_policies (priority, response_minutes, resolution_minut
 INSERT OR IGNORE INTO queues (id, name, description, created_at) VALUES
     (1, 'Soporte', 'Incidencias y peticiones generales', '2024-01-01T00:00:00Z');
 
+-- Plantillas personalizadas de ticket: precargan asunto, descripción, prioridad
+-- y cola en el formulario de creación. Editables desde Administración › Plantillas.
+CREATE TABLE IF NOT EXISTS ticket_templates (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+    category    TEXT    NOT NULL DEFAULT '',
+    subject     TEXT    NOT NULL DEFAULT '',
+    description TEXT    NOT NULL DEFAULT '',
+    priority    TEXT    NOT NULL DEFAULT 'normal',
+    queue_id    INTEGER REFERENCES queues(id) ON DELETE SET NULL,
+    active      INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT    NOT NULL
+);
+
+INSERT OR IGNORE INTO ticket_templates (id, name, category, subject, description, priority, queue_id, created_at) VALUES
+    (1, 'Soporte · Incidencia de usuario', 'Soporte', 'Incidencia: ',
+     'Hola,
+
+Descripción del problema:
+Impacto (a quién afecta):
+Desde cuándo ocurre:
+Pasos para reproducirlo:
+Qué se ha probado ya:', 'normal', NULL, '2024-01-01T00:00:00Z'),
+    (2, 'TI · Incidencia de infraestructura', 'TI', 'Incidencia TI: ',
+     'Servicio o sistema afectado:
+Entorno (producción/staging/…) y ubicación:
+Síntoma observado:
+Mensajes de error o logs:
+Cambios recientes relacionados:
+Impacto y criticidad:', 'high', NULL, '2024-01-01T00:00:00Z'),
+    (3, 'Ciberseguridad · Incidente', 'Ciberseguridad', 'Incidente de seguridad: ',
+     'Tipo de incidente (phishing/malware/acceso indebido/fuga de datos/…):
+Activos o cuentas afectadas:
+Fecha y hora aproximada de detección:
+Cómo se ha detectado:
+Indicadores observados (IP, dominio, hash, correo):
+Acciones tomadas hasta ahora (aislamiento, bloqueo):
+¿Requiere escalado inmediato? (sí/no):', 'urgent', NULL, '2024-01-01T00:00:00Z');
+
 -- Ajustes de la aplicación editables desde la consola web. La capa de
 -- configuración (internal/config) usa estos valores como fuente de verdad y
 -- recurre a las variables de entorno solo como valores por defecto iniciales.

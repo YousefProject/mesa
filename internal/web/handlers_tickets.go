@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -90,11 +91,15 @@ func (s *Server) handleTicketList(w http.ResponseWriter, r *http.Request) {
 
 type ticketFormView struct {
 	base
-	Queues   []model.Queue
-	Staff    []model.User
-	Priority []model.Priority
-	Subject  string
-	QueueID  *int64
+	Queues           []model.Queue
+	Staff            []model.User
+	Priority         []model.Priority
+	Subject          string
+	Description      string
+	PresetPriority   model.Priority
+	QueueID          *int64
+	Templates        []model.TicketTemplate
+	SelectedTemplate int64
 }
 
 func (s *Server) handleTicketForm(w http.ResponseWriter, r *http.Request) {
@@ -110,12 +115,30 @@ func (s *Server) handleTicketForm(w http.ResponseWriter, r *http.Request) {
 	if u.Role.IsStaff() {
 		staff, _ = s.store.Staff()
 	}
-	s.page(w, r, http.StatusOK, "ticket_new.html", ticketFormView{
-		base:     s.baseView(r, "Nuevo ticket"),
-		Queues:   queues,
-		Staff:    staff,
-		Priority: model.Priorities(),
-	})
+	templates, err := s.store.Templates(false)
+	if err != nil {
+		s.logger.Error("listar plantillas", "err", err)
+	}
+	view := ticketFormView{
+		base:           s.baseView(r, "Nuevo ticket"),
+		Queues:         queues,
+		Staff:          staff,
+		Priority:       model.Priorities(),
+		PresetPriority: model.PriorityNormal,
+		Templates:      templates,
+	}
+	if id := int64ptr(r.URL.Query().Get("template")); id != nil {
+		if tpl, err := s.store.TemplateByID(*id); err == nil && tpl.Active {
+			view.Subject = tpl.Subject
+			view.Description = tpl.Description
+			if tpl.Priority.Valid() {
+				view.PresetPriority = tpl.Priority
+			}
+			view.QueueID = tpl.QueueID
+			view.SelectedTemplate = tpl.ID
+		}
+	}
+	s.page(w, r, http.StatusOK, "ticket_new.html", view)
 }
 
 func (s *Server) handleTicketCreate(w http.ResponseWriter, r *http.Request) {
@@ -179,6 +202,8 @@ type ticketView struct {
 	Staff       []model.User
 	SLAState    string
 	CanTriage   bool
+	CanEdit     bool
+	CanDelete   bool
 	Statuses    []model.Status
 	Priorities  []model.Priority
 }
@@ -238,9 +263,100 @@ func (s *Server) renderTicket(w http.ResponseWriter, r *http.Request, t *model.T
 		Staff:       staffUsers,
 		SLAState:    string(sla.Evaluate(*t, time.Now().UTC(), slaThreshold)),
 		CanTriage:   staff,
+		CanEdit:     auth.CanEditTicket(u, t),
+		CanDelete:   auth.CanDeleteTicket(u, t),
 		Statuses:    model.Statuses(),
 		Priorities:  model.Priorities(),
 	})
+}
+
+type ticketEditView struct {
+	base
+	Ticket *model.Ticket
+}
+
+// handleTicketEditForm muestra el formulario de edición (asunto + descripción).
+func (s *Server) handleTicketEditForm(w http.ResponseWriter, r *http.Request) {
+	u := s.authUser(w, r)
+	if u == nil {
+		return
+	}
+	t := s.ticketFor(w, r)
+	if t == nil {
+		return
+	}
+	if !auth.CanEditTicket(u, t) {
+		s.errorPage(w, r, http.StatusForbidden, "No puedes editar este ticket.")
+		return
+	}
+	s.page(w, r, http.StatusOK, "ticket_edit.html", ticketEditView{
+		base:   s.baseView(r, "Editar "+t.Ref),
+		Ticket: t,
+	})
+}
+
+// handleTicketEditSave guarda la edición y recarga con confirmación.
+func (s *Server) handleTicketEditSave(w http.ResponseWriter, r *http.Request) {
+	u := s.authUser(w, r)
+	if u == nil {
+		return
+	}
+	t := s.ticketFor(w, r)
+	if t == nil {
+		return
+	}
+	if !auth.CanEditTicket(u, t) {
+		s.errorPage(w, r, http.StatusForbidden, "No puedes editar este ticket.")
+		return
+	}
+	subject := strings.TrimSpace(r.PostFormValue("subject"))
+	description := strings.TrimSpace(r.PostFormValue("description"))
+	if subject == "" || len([]rune(subject)) < 3 {
+		s.redirect(w, r, "/tickets/"+fmt.Sprint(t.ID)+"/edit?err="+qr("el asunto debe tener al menos 3 caracteres"))
+		return
+	}
+	if err := s.store.UpdateTicket(t.ID, subject, description); err != nil {
+		s.logger.Error("editar ticket", "err", err)
+		s.redirect(w, r, "/tickets/"+fmt.Sprint(t.ID)+"/edit?err="+qr("no se pudo guardar el ticket"))
+		return
+	}
+	detail := "asunto: " + t.Subject
+	if subject != t.Subject {
+		detail = fmt.Sprintf("asunto: %q → %q", t.Subject, subject)
+	}
+	s.store.Audit(&u.ID, "ticket.update", "ticket", t.ID, detail)
+	s.snaps.Write(t.ID)
+	s.redirect(w, r, "/tickets/"+fmt.Sprint(t.ID)+"?ok="+qr(t.Ref+" actualizado"))
+}
+
+// handleTicketDelete elimina el ticket (BD + carpeta data/tickets/<id>/).
+func (s *Server) handleTicketDelete(w http.ResponseWriter, r *http.Request) {
+	u := s.authUser(w, r)
+	if u == nil {
+		return
+	}
+	t := s.ticketFor(w, r)
+	if t == nil {
+		return
+	}
+	if !auth.CanDeleteTicket(u, t) {
+		s.errorPage(w, r, http.StatusForbidden, "No puedes eliminar este ticket.")
+		return
+	}
+	id, ref, subject := t.ID, t.Ref, t.Subject
+	if err := s.store.DeleteTicket(id); err != nil {
+		s.logger.Error("eliminar ticket", "err", err)
+		s.redirect(w, r, "/tickets/"+fmt.Sprint(id)+"?err="+qr("no se pudo eliminar el ticket"))
+		return
+	}
+	// Snapshot + adjuntos del ticket: se retiran del disco; el rastro de la
+	// eliminación queda en audit_events (ref + asunto + actor).
+	dir := filepath.Join(s.conf().TicketsDir, strconv.FormatInt(id, 10))
+	if err := os.RemoveAll(dir); err != nil {
+		s.logger.Warn("carpeta de ticket no eliminada", "dir", dir, "err", err)
+	}
+	s.store.Audit(&u.ID, "ticket.delete", "ticket", id, ref+" · "+subject)
+	s.redirect(w, r, "/tickets?ok="+qr(ref+" eliminado"))
 }
 
 func (s *Server) handleCommentCreate(w http.ResponseWriter, r *http.Request) {
@@ -383,26 +499,8 @@ func (s *Server) handleTicketQueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) reloadAndRespond(w http.ResponseWriter, r *http.Request, id int64) {
-	t, err := s.store.TicketByID(id)
-	if err != nil {
-		s.errorPage(w, r, http.StatusNotFound, "Ese ticket no existe.")
-		return
-	}
-	if r.Header.Get("HX-Request") == "true" {
-		queues, _ := s.store.Queues()
-		staff, _ := s.store.Staff()
-		s.partial(w, "ticketSide", ticketView{
-			base:       s.baseView(r, t.Ref),
-			Ticket:     t,
-			Queues:     queues,
-			Staff:      staff,
-			SLAState:   string(sla.Evaluate(*t, time.Now().UTC(), slaThreshold)),
-			CanTriage:  true,
-			Statuses:   model.Statuses(),
-			Priorities: model.Priorities(),
-		})
-		return
-	}
+	// Recarga completa de la página: el estado/prioridad/etc. se refleja
+	// también en el pill de cabecera, no solo en la barra lateral.
 	s.redirect(w, r, "/tickets/"+fmt.Sprint(id)+"?ok="+qr("ticket actualizado"))
 }
 

@@ -4,20 +4,37 @@
   <a class="btn btn-ghost" href="/tickets">Cancelar</a>
 </div>
 
+{{if .Templates}}
+<div class="card">
+  <form method="get" action="/tickets/new" class="filters">
+    <label style="margin:0">Plantilla</label>
+    <select name="template">
+      <option value="">Sin plantilla</option>
+      {{range .Templates}}
+      <option value="{{.ID}}" {{if eq .ID $.SelectedTemplate}}selected{{end}}>{{if .Category}}{{.Category}} · {{end}}{{.Name}}</option>
+      {{end}}
+    </select>
+    <button class="btn" type="submit">Cargar plantilla</button>
+    {{if .SelectedTemplate}}<a class="btn btn-ghost" href="/tickets/new">Quitar</a>{{end}}
+  </form>
+  <p class="muted small">Una plantilla precarga el asunto, la descripción, la prioridad y la cola. Puedes editar todo antes de crear el ticket.</p>
+</div>
+{{end}}
+
 <form method="post" action="/tickets" class="card stack">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
   <label>Asunto</label>
-  <input type="text" name="subject" maxlength="200" required autofocus placeholder="Resumen breve del problema o petición">
+  <input type="text" name="subject" maxlength="200" required autofocus placeholder="Resumen breve del problema o petición" value="{{.Subject}}">
 
   <label>Descripción</label>
-  <textarea name="description" rows="8" placeholder="Qué ocurre, a quién afecta, desde cuándo, qué has probado…"></textarea>
+  <textarea name="description" rows="8" placeholder="Qué ocurre, a quién afecta, desde cuándo, qué has probado…">{{.Description}}</textarea>
 
   <div class="grid2">
     <div>
       <label>Prioridad</label>
       <select name="priority">
         {{range .Priority}}
-        <option value="{{.}}" {{if eq . "normal"}}selected{{end}}>{{prioLabel .}}</option>
+        <option value="{{.}}" {{if eq . $.PresetPriority}}selected{{end}}>{{prioLabel .}}</option>
         {{end}}
       </select>
       <p class="muted small">La prioridad fija el SLA de respuesta y resolución.</p>
@@ -27,7 +44,7 @@
       <select name="queue_id">
         <option value="">Sin cola</option>
         {{range .Queues}}
-        <option value="{{.ID}}">{{.Name}}</option>
+        <option value="{{.ID}}" {{if ptrEq $.QueueID .ID}}selected{{end}}>{{.Name}}</option>
         {{end}}
       </select>
       <p class="muted small">Opcional, ayuda a encaminar el ticket.</p>

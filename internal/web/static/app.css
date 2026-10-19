@@ -138,6 +138,8 @@ label { display: block; font-size: .8rem; color: #adbac7; margin: .5rem 0 .2rem;
 .btn:hover { background: #30363d; text-decoration: none; }
 .btn-primary { background: #2f81f7; border-color: #2f81f7; color: #fff; font-weight: 600; }
 .btn-primary:hover { background: #388bfd; }
+.btn-danger { background: #da3633; border-color: #da3633; color: #fff; }
+.btn-danger:hover { background: #f85149; }
 .btn-sm { padding: .22rem .55rem; font-size: .8rem; }
 .btn-ghost { background: transparent; }
 .actions { display: flex; gap: .6rem; align-items: center; margin-top: .8rem; flex-wrap: wrap; }

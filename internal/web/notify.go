@@ -36,7 +36,7 @@ func (s *Server) send(to []string, subject, body string) {
 }
 
 func (s *Server) ticketURL(id int64) string {
-	return fmt.Sprintf("%s/tickets/%d", strings.TrimRight(s.cfg.BaseURL, "/"), id)
+	return fmt.Sprintf("%s/tickets/%d", strings.TrimRight(s.conf().BaseURL, "/"), id)
 }
 
 func (s *Server) notifyTicketCreated(t *model.Ticket) {

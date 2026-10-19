@@ -41,9 +41,9 @@ func (s *Server) anonCSRF(w http.ResponseWriter, r *http.Request) context.Contex
 			Name:     auth.CSRFCookie,
 			Value:    token,
 			Path:     "/",
-			MaxAge:   int(s.cfg.SessionTTL.Seconds()),
+			MaxAge:   int(s.conf().SessionTTL.Seconds()),
 			HttpOnly: false,
-			Secure:   s.cfg.CookieSecure,
+			Secure:   s.conf().CookieSecure,
 			SameSite: http.SameSiteLaxMode,
 		})
 	}
@@ -120,7 +120,7 @@ func (s *Server) recover(next http.Handler) http.Handler {
 }
 
 func (s *Server) clientIP(r *http.Request) string {
-	if s.cfg.TrustProxy {
+	if s.conf().TrustProxy {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 			return strings.TrimSpace(strings.Split(xff, ",")[0])
 		}
@@ -142,7 +142,7 @@ func (s *Server) setCookie(w http.ResponseWriter, token string, expires time.Tim
 		Path:     "/",
 		Expires:  expires,
 		HttpOnly: true,
-		Secure:   s.cfg.CookieSecure,
+		Secure:   s.conf().CookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -154,7 +154,7 @@ func (s *Server) clearCookie(w http.ResponseWriter) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   s.cfg.CookieSecure,
+		Secure:   s.conf().CookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -162,7 +162,7 @@ func (s *Server) clearCookie(w http.ResponseWriter) {
 func (s *Server) login(w http.ResponseWriter, r *http.Request, userID int64) error {
 	token := auth.NewToken()
 	csrf := auth.NewToken()
-	expires := time.Now().UTC().Add(s.cfg.SessionTTL)
+	expires := time.Now().UTC().Add(s.conf().SessionTTL)
 	if err := s.store.CreateSession(token, userID, csrf, expires, r.UserAgent(), s.clientIP(r)); err != nil {
 		return err
 	}

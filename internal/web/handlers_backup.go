@@ -43,7 +43,7 @@ func (s *Server) handleAdminBackupExport(w http.ResponseWriter, r *http.Request)
 	name := fmt.Sprintf("mesa-backup-%s.zip", time.Now().UTC().Format("20060102-150405"))
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-	if _, err := backup.Export(s.store, s.cfg.TicketsDir, s.version, w); err != nil {
+	if _, err := backup.Export(s.store, s.conf().TicketsDir, s.version, w); err != nil {
 		// Los headers ya se enviaron: solo se registra.
 		s.logger.Error("backup: exportar", "err", err)
 		return
@@ -58,10 +58,10 @@ func (s *Server) handleAdminBackupImport(w http.ResponseWriter, r *http.Request)
 	if admin == nil {
 		return
 	}
-	maxBytes := s.cfg.MaxUploadMB * 1024 * 1024
+	maxBytes := s.conf().MaxUploadMB * 1024 * 1024
 	r.Body = http.MaxBytesReader(w, r.Body, maxBytes+maxBytes/10)
 	if err := r.ParseMultipartForm(maxBytes); err != nil {
-		s.redirect(w, r, "/admin/backup?err="+qr("el archivo es demasiado grande (máx "+strconv.FormatInt(s.cfg.MaxUploadMB, 10)+" MB)"))
+		s.redirect(w, r, "/admin/backup?err="+qr("el archivo es demasiado grande (máx "+strconv.FormatInt(s.conf().MaxUploadMB, 10)+" MB)"))
 		return
 	}
 	file, _, err := r.FormFile("backup")
@@ -75,7 +75,7 @@ func (s *Server) handleAdminBackupImport(w http.ResponseWriter, r *http.Request)
 		s.redirect(w, r, "/admin/backup?err="+qr("no se pudo leer el archivo"))
 		return
 	}
-	rep, err := backup.Import(s.store, s.cfg, readerAt(tmp), int64(len(tmp)), backup.ImportOptions{
+	rep, err := backup.Import(s.store, s.conf(), readerAt(tmp), int64(len(tmp)), backup.ImportOptions{
 		Overwrite: r.PostFormValue("overwrite") == "1",
 		Logger:    s.logger,
 	})

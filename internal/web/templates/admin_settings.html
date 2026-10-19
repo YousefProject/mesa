@@ -1,0 +1,87 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Ajustes</h1>
+  <nav class="tabs">
+    <a href="/admin/users">Usuarios</a>
+    <a href="/admin/queues">Colas</a>
+    <a href="/admin/sla">SLA</a>
+    <a href="/admin/audit">Auditoría</a>
+    <a href="/admin/backup">Copia</a>
+    <a href="/admin/settings" class="on">Ajustes</a>
+  </nav>
+</div>
+
+<form method="post" action="/admin/settings" class="layout">
+  <section class="main">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+
+    <div class="card stack">
+      <h3>General</h3>
+      <label>Dirección de escucha</label>
+      <input type="text" name="addr" value="{{.Cfg.Addr}}" placeholder=":8080" required>
+      <label>URL base (para enlaces en correos)</label>
+      <input type="text" name="base_url" value="{{.Cfg.BaseURL}}" placeholder="http://localhost:8080">
+      <label>Cotas</label>
+      <div class="grid2">
+        <div>
+          <label>Subida máx. (MB)</label>
+          <input type="number" name="max_upload_mb" value="{{.Cfg.MaxUploadMB}}" min="1" max="256">
+        </div>
+        <div>
+          <label>Sesión TTL (p. ej. 168h)</label>
+          <input type="text" name="session_ttl" value="{{.Cfg.SessionTTL}}" placeholder="168h">
+        </div>
+      </div>
+      <label class="check">
+        <input type="checkbox" name="allow_signup" {{if .Cfg.AllowSignup}}checked{{end}}> permitir auto-registro en /signup
+      </label>
+      <label class="check">
+        <input type="checkbox" name="cookie_secure" {{if .Cfg.CookieSecure}}checked{{end}}> cookies Secure (solo HTTPS)
+      </label>
+      <label class="check">
+        <input type="checkbox" name="trust_proxy" {{if .Cfg.TrustProxy}}checked{{end}}> confiar en X-Forwarded-For / -Proto
+      </label>
+      <p class="muted small">Cambiar la dirección de escucha reinicia el listener al guardar (sin reiniciar el proceso).</p>
+    </div>
+
+    <div class="card stack">
+      <h3>Correo (SMTP)</h3>
+      <div class="grid2">
+        <div>
+          <label>Servidor</label>
+          <input type="text" name="smtp_host" value="{{.Cfg.SMTP.Host}}" placeholder="smtp.ejemplo.com">
+        </div>
+        <div>
+          <label>Puerto</label>
+          <input type="number" name="smtp_port" value="{{.Cfg.SMTP.Port}}" min="1" max="65535">
+        </div>
+      </div>
+      <label>Usuario</label>
+      <input type="text" name="smtp_user" value="{{.Cfg.SMTP.User}}" autocomplete="off">
+      <label>Contraseña</label>
+      <input type="password" name="smtp_pass" value="{{.Cfg.SMTP.Pass}}" autocomplete="new-password">
+      <label>Remitente (From)</label>
+      <input type="text" name="smtp_from" value="{{.Cfg.SMTP.From}}" placeholder="mesa@ejemplo.com">
+      <label class="check">
+        <input type="checkbox" name="smtp_starttls" {{if .Cfg.SMTP.StartTLS}}checked{{end}}> exigir STARTTLS (aborta si el servidor no lo ofrece)
+      </label>
+      <p class="muted small">Deja el servidor vacío para desactivar el envío de correos. Si el servidor ofrece STARTTLS se usa siempre.</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">Guardar ajustes</button>
+      <button class="btn" type="submit" formaction="/admin/settings/test">Enviar correo de prueba</button>
+      <span class="muted small">La prueba usa los valores del formulario sin guardar y envía a tu correo de cuenta.</span>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h3>Cómo funciona</h3>
+      <p class="muted small">Los ajustes se guardan en la base de datos y se aplican al instante: no hace falta reiniciar <span class="mono">./mesa</span>.</p>
+      <p class="muted small">Las variables de entorno <span class="mono">SD_*</span> solo se usan como valores iniciales antes de la primera vez que guardas aquí.</p>
+      <p class="muted small">Si cambias el puerto y otro proceso lo usa, verás el error y el servicio sigue escuchando en la dirección anterior.</p>
+    </div>
+  </aside>
+</form>
+{{end}}

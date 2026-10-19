@@ -139,9 +139,19 @@ interface sin tocar los handlers.
 La estructura plana antigua (`data/servicedesk.db`, `data/attachments/<id>/`)
 se migra automáticamente al primer arranque.
 
-## Variables de entorno
+## Configuración
 
-| Variable | Defecto | Descripción |
+La app arranca solo con `./mesa`: toda la configuración (escucha, URL
+pública, SMTP, límites, auto-registro, proxy) se edita desde la consola web
+en **Administración → Ajustes**, se guarda en la base de datos y se aplica
+al instante, sin reiniciar. Cambiar el puerto reabre el escuchador en
+caliente.
+
+Las variables de entorno `SD_*` solo aportan los **valores iniciales** antes
+de la primera vez que guardas en la consola; `SD_DATA_DIR` es la única que
+se lee al arrancar (dónde viven los datos).
+
+| Variable (inicial) | Defecto | Descripción |
 |---|---|---|
 | `SD_ADDR` | `:8080` | Dirección de escucha |
 | `SD_BASE_URL` | `http://localhost:8080` | URL pública (para enlaces de email) |
@@ -156,18 +166,19 @@ se migra automáticamente al primer arranque.
 | `SD_SMTP_USER` | `""` | Usuario SMTP |
 | `SD_SMTP_PASS` | `""` | Contraseña SMTP |
 | `SD_SMTP_FROM` | `mesa@localhost` | From |
-| `SD_SMTP_STARTTLS` | `true` | Usar STARTTLS |
+| `SD_SMTP_STARTTLS` | `true` | Exigir STARTTLS |
 | `SD_ADMIN_EMAIL` | `""` | Admin para bootstrap |
 | `SD_ADMIN_PASSWORD` | `""` | Password para bootstrap |
 
 ## Uso rápido
 
-1. Accede a `http://localhost:8080`
+1. Ejecuta `./mesa` y accede a `http://localhost:8080`
 2. Inicia sesión con `admin` + `admin123` (cámbialas después en `/me`)
 3. Ve a `Administración > Usuarios` para crear agentes
 4. Ve a `Administración > Colas` para crear colas
-5. Los solicitantes pueden registrarse (`/signup`) o se les crea como requester
-6. El dashboard muestra SLA incumplidos y carga por agente
+5. Configura correo y límites en `Administración > Ajustes`
+6. Los solicitantes pueden registrarse (`/signup`) o se les crea como requester
+7. El dashboard muestra SLA incumplidos y carga por agente
 
 ## Sistema de SLA
 
@@ -181,8 +192,9 @@ Cuando se incumple SLA, se marca `sla_breached`, se audita (`sla.breached`) y se
 
 ## Notas de despliegue
 
-- **Detrás de reverse proxy** (nginx/caddy): pon `SD_TRUST_PROXY=true` si quieres que las IPs sean correctas.
-- **HTTPS**: pon `SD_COOKIE_SECURE=true`.
+- **Detrás de reverse proxy** (nginx/caddy): activa *Confiar en X-Forwarded-For* en `Administración > Ajustes` si quieres que las IPs sean correctas.
+- **HTTPS**: activa *cookies seguras* en `Administración > Ajustes`.
+- **Puerto ocupado** (`bind: address already in use`): cierra la instancia anterior (`pkill -x mesa`) o cambia el puerto desde los ajustes.
 - **Backups**: copia `data/` entero (o al menos `data/db/` + `data/tickets/`). El WAL (`servicedesk.db-wal/shm`) también debe incluirse o cerrar la app antes de copiar.
 - **Auditoría forense**: `data/tickets/<id>/snapshot.json` da el estado completo de cualquier ticket en un momento dado, sin depender de la BD.
 

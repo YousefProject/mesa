@@ -66,6 +66,12 @@ type Repo interface {
 	// Auditoría (store.go)
 	Audit(actorID *int64, action, entity string, entityID int64, details string)
 
+	// Ajustes de la aplicación (settings.go)
+	GetSetting(key string) (string, error)
+	SetSetting(key, value string) error
+	Settings() (map[string]string, error)
+	SetSettings(m map[string]string) error
+
 	// Restauración de backups (restore.go)
 	TicketIDs() ([]int64, error)
 	RestoreTicket(t *model.Ticket) error

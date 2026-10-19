@@ -259,8 +259,9 @@ primera respuesta del SLA.
 
 1. En el ticket, usa el formulario **Adjuntar archivos** (formato multipart).
 2. Puedes añadir un comentario asociado al subir.
-3. Se admiten varios archivos a la vez; el límite por archivo es duro
-   (25 MB) y el total por petición es `SD_MAX_UPLOAD_MB` (10 MB por defecto).
+3. Se admiten varios archivos a la vez; el total por petición es el
+   *tamaño máximo de subida* de **Administración → Ajustes** (10 MB por
+   defecto).
 4. Los archivos se guardan en `data/tickets/<id>/attachments/` y se descargan
    desde el enlace con el nombre original.
 
@@ -306,7 +307,7 @@ prioridad, que recalcula desde la fecha de creación).
 ## 9. Administración
 
 Sección exclusiva de administradores, con pestañas: **Usuarios · Colas · SLA ·
-Auditoría · Copia**.
+Auditoría · Copia · Ajustes**.
 
 ### 9.1 Usuarios (`/admin/users`)
 
@@ -344,6 +345,32 @@ La auditoría también es consultable por ticket en su página de detalle.
 ### 9.5 Copia de seguridad (`/admin/backup`)
 
 Ver sección 10.
+
+### 9.6 Ajustes (`/admin/settings`)
+
+Toda la configuración del servicio se edita aquí y se aplica **al instante**,
+sin reiniciar:
+
+- **General**: dirección de escucha, URL pública, tamaño máximo de subida,
+  duración de sesión, auto-registro, cookies seguras y confianza en proxy.
+- **Correo (SMTP)**: servidor, puerto, usuario, contraseña, remitente y
+  exigencia de STARTTLS. Botón **Enviar correo de prueba**: usa los valores
+  del formulario (sin guardar) y envía un mensaje al correo de tu cuenta, con
+  fallo rápido y mensaje claro si el servidor no responde.
+
+Detalles importantes:
+
+- Los ajustes se guardan en la base de datos (tabla `settings`): son la
+  fuente de verdad y sobreviven a los reinicios. Las variables de entorno
+  `SD_*` solo aportan los valores iniciales antes de la primera vez que
+  guardas aquí.
+- Cambiar la **dirección de escucha** reabre el escuchador en caliente: se
+  intenta abrir el puerto nuevo antes de cerrar el actual; si el puerto está
+  ocupado por otro proceso, no se guarda nada y el servicio sigue en la
+  dirección anterior.
+- Los cambios quedan en la auditoría (`settings.update`) registrando **solo
+  las claves modificadas**, nunca los valores (la contraseña SMTP no se
+  registra).
 
 ---
 
@@ -465,7 +492,8 @@ espejo auditable.
 
 ## 12. Notificaciones por correo
 
-Si `SD_SMTP_HOST` está configurado, la aplicación envía correos para:
+Si el SMTP está configurado (**Administración → Ajustes → Correo**), la
+aplicación envía correos para:
 
 | Evento | Destinatarios |
 |---|---|
@@ -476,7 +504,10 @@ Si `SD_SMTP_HOST` está configurado, la aplicación envía correos para:
 
 Si **no** hay SMTP configurado (modo dry-run, por defecto), los correos no se
 envían: se registran en la salida con el asunto y el cuerpo, lo que permite
-probar el flujo completo sin servidor de correo.
+probar el flujo completo sin servidor de correo. El remitente y el host se
+configuran en **Administración → Ajustes**; STARTTLS se usa siempre que el
+servidor lo ofrezca y, si marcas *exigir STARTTLS*, el envío se aborta si el
+servidor no lo ofrece (nunca cae a cleartext con autenticación).
 
 Asunto típico: `[SD-00001] Nuevo ticket: asunto del ticket`.
 
@@ -508,7 +539,24 @@ sección 10, que no requiere parar el servicio.
 
 ---
 
-## 14. Configuración (variables de entorno)
+## 14. Configuración
+
+La configuración se gestiona desde la consola web
+(**Administración → Ajustes**) y se guarda en la base de datos: no hace
+falta reiniciar ni tocar variables de entorno para cambiarla.
+
+**Precedencia** (de mayor a menor):
+
+1. Flag `-addr` (override de una sola ejecución).
+2. Ajustes guardados en la consola (fuente de verdad).
+3. Variables de entorno `SD_*` (solo como valores iniciales antes de la
+   primera vez que guardas en la consola).
+4. Valores por defecto.
+
+`SD_DATA_DIR` es la única excepción: fija dónde viven los datos y solo se
+lee al arrancar (la base de datos no puede moverse en caliente).
+
+### Variables de entorno (valores iniciales)
 
 | Variable | Defecto | Descripción |
 |---|---|---|
@@ -525,16 +573,19 @@ sección 10, que no requiere parar el servicio.
 | `SD_SMTP_USER` | vacío | Usuario SMTP. |
 | `SD_SMTP_PASS` | vacío | Contraseña SMTP. |
 | `SD_SMTP_FROM` | `servicedesk@localhost` | Remitente. |
-| `SD_SMTP_STARTTLS` | `true` | Usar STARTTLS. |
+| `SD_SMTP_STARTTLS` | `true` | Exigir STARTTLS. |
 | `SD_ADMIN_EMAIL` | vacío | Admin para bootstrap automático. |
 | `SD_ADMIN_PASSWORD` | vacío | Contraseña del admin de bootstrap. |
 
 ### Flags de CLI
 
+Los flags son herramientas de mantenimiento; para el uso normal basta
+`./mesa`.
+
 | Flag | Descripción |
 |---|---|
 | `-version` | Muestra versión y sale. |
-| `-addr` | Sobreescribe la dirección de escucha. |
+| `-addr` | Sobreescribe la dirección de escucha solo en esta ejecución. |
 | `-create-admin` | Crea/actualiza el administrador y sale. |
 | `-admin-email` / `-admin-name` / `-admin-password` | Datos del admin. |
 | `-build-snapshots` | Regenera todos los `snapshot.json` y sale. |
@@ -545,7 +596,7 @@ sección 10, que no requiere parar el servicio.
 ### Despliegue detrás de reverse proxy
 
 ```nginx
-# Ejemplo nginx; activar SD_TRUST_PROXY=true para IPs reales
+# Ejemplo nginx; activar "Confiar en X-Forwarded-For" (Ajustes) para IPs reales
 location / {
     proxy_pass http://127.0.0.1:8080;
     proxy_set_header Host $host;
@@ -554,7 +605,7 @@ location / {
 }
 ```
 
-Con HTTPS, activa además `SD_COOKIE_SECURE=true`.
+Con HTTPS, activa además *cookies seguras* en Ajustes.
 
 ---
 
@@ -562,13 +613,14 @@ Con HTTPS, activa además `SD_COOKIE_SECURE=true`.
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
+| `bind: address already in use` al arrancar | Otra instancia de `./mesa` (u otro proceso) ya usa el puerto. | `pkill -x mesa` para cerrar la anterior, o cambia el puerto en **Administración → Ajustes**. |
 | `403 token CSRF inválido` al enviar formularios | Token de sesión caducado o formulario con HTML cacheado. | Recarga la página y reintenta. |
-| No llegan correos | SMTP sin configurar o incorrecto. | Revisa `SD_SMTP_*`; en modo dry-run los correos salen por log. |
+| No llegan correos | SMTP sin configurar o incorrecto, o el servidor rechaza la autenticación en claro. | Revisa **Administración → Ajustes → Correo** y usa **Enviar correo de prueba**; en modo dry-run los correos salen por log. |
 | No puedo ver un ticket (404/403) | Eres solicitante y el ticket es de otro usuario. | Solo el staff ve todos los tickets. |
 | El filtro "Sin asignar" no funciona | — (corregido; usa `assignee=none`). | Actualiza a la última versión. |
-| La subida de adjuntos da error | Archivo o suma total demasiado grande. | Comprueba `SD_MAX_UPLOAD_MB` (25 MB máx. por archivo). |
+| La subida de adjuntos da error | Archivo o suma total demasiado grande. | Ajusta el tamaño máximo en **Administración → Ajustes** (máx. 1024 MB). |
 | `SLA incumplido` aparece en tickets vivos | El plazo venció mientras estaba abierto. | Resolver/cerrar el ticket o ajustar políticas en **Administración → SLA**. |
-| El admin no recuerda la contraseña | Se generó aleatoriamente en el primer arranque. | Recrear con `-create-admin -admin-password …`. |
+| El admin no recuerda la contraseña | Credenciales por defecto en el primer arranque. | Usa `admin`/`admin123` y cámbiala en `/me`, o recrea con `-create-admin -admin-password …`. |
 | Importación de backup omite tickets | Ya existen con ese ID. | Usa `-overwrite` (CLI) o marca *Reemplazar* (panel). |
 | `sqlite: database is locked` | Otra escritura simultánea. | Normal con WAL; si persiste, revisa discos de red o antivirus. |
 | Los KPIs del panel muestran 0 | No hay tickets o datos aún. | Crea tickets de prueba. |
@@ -601,6 +653,7 @@ curl http://localhost:8080/healthz   # → "ok"
 | GET/POST | `/admin/users`, `/admin/queues`, `/admin/sla` | Admin |
 | GET | `/admin/audit` | Admin |
 | GET | `/admin/backup`, `/admin/backup/export`, `POST /admin/backup/import` | Admin |
+| GET/POST | `/admin/settings`, `POST /admin/settings/test` | Admin |
 | GET | `/healthz` | Público |
 
 ---

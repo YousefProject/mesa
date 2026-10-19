@@ -356,7 +356,7 @@ func (s *Server) handleTicketAssign(w http.ResponseWriter, r *http.Request) {
 	if assignee != nil {
 		if a, err := s.store.UserByID(*assignee); err == nil {
 			target = a.Name
-			s.notifyUsers([]model.User{*a}, "["+t.Ref+"] te han asignado un ticket", t.Subject+"\n\n"+s.cfg.BaseURL+"/tickets/"+fmt.Sprint(t.ID))
+			s.notifyUsers([]model.User{*a}, "["+t.Ref+"] te han asignado un ticket", t.Subject+"\n\n"+s.conf().BaseURL+"/tickets/"+fmt.Sprint(t.ID))
 		}
 	}
 	s.store.Audit(&u.ID, "ticket.assign", "ticket", t.ID, "asignado a "+target)
@@ -415,10 +415,10 @@ func (s *Server) handleTicketAttach(w http.ResponseWriter, r *http.Request) {
 	if t == nil {
 		return
 	}
-	maxBytes := s.cfg.MaxUploadMB * 1024 * 1024
+	maxBytes := s.conf().MaxUploadMB * 1024 * 1024
 	r.Body = http.MaxBytesReader(w, r.Body, maxBytes+maxBytes/10)
 	if err := r.ParseMultipartForm(maxBytes); err != nil {
-		s.redirect(w, r, "/tickets/"+fmt.Sprint(t.ID)+"?err="+qr("archivo demasiado grande (máx "+fmt.Sprint(s.cfg.MaxUploadMB)+" MB)"))
+		s.redirect(w, r, "/tickets/"+fmt.Sprint(t.ID)+"?err="+qr("archivo demasiado grande (máx "+fmt.Sprint(s.conf().MaxUploadMB)+" MB)"))
 		return
 	}
 	files := r.MultipartForm.File["files"]
@@ -464,7 +464,7 @@ func (s *Server) saveAttachment(ticketID int64, commentID *int64, uploaderID int
 	}
 	defer src.Close()
 
-	dir := s.cfg.AttachDir(ticketID)
+	dir := s.conf().AttachDir(ticketID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}

@@ -6,12 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -75,9 +77,6 @@ func main() {
 	if err != nil {
 		fatal(logger, "configuración", err)
 	}
-	if opts.addr != "" {
-		cfg.Addr = opts.addr
-	}
 	if err := os.MkdirAll(cfg.TicketsDir, 0o700); err != nil {
 		fatal(logger, "crear directorio de tickets", err)
 	}
@@ -97,6 +96,20 @@ func main() {
 		fatal(logger, "migrar", err)
 	}
 	st := store.New(conn)
+
+	// Ajustes guardados en la consola web: la BD es la fuente de verdad y
+	// las variables de entorno solo aportan los valores iniciales. La flag
+	// -addr es un override de una sola ejecución y gana sobre ambos.
+	kv, err := st.Settings()
+	if err != nil {
+		fatal(logger, "leer ajustes", err)
+	}
+	if err := config.ApplySettings(&cfg, kv); err != nil {
+		logger.Warn("ajustes guardados con valores inválidos", "err", err)
+	}
+	if opts.addr != "" {
+		cfg.Addr = opts.addr
+	}
 
 	if err := bootstrapAdmin(logger, st, opts); err != nil {
 		fatal(logger, "administrador", err)
@@ -180,8 +193,9 @@ func main() {
 		return
 	}
 
-	sender := mail.New(cfg.SMTP, logger)
-	srv, err := web.New(cfg, st, sender, logger, version)
+	rt := config.NewRuntime(cfg)
+	sender := mail.NewDynamic(func() config.SMTP { return rt.Get().SMTP }, logger)
+	srv, err := web.New(rt, st, sender, logger, version)
 	if err != nil {
 		fatal(logger, "servidor web", err)
 	}
@@ -199,13 +213,53 @@ func main() {
 	defer stop()
 	go srv.RunWorkers(ctx)
 
-	go func() {
-		logger.Info("mesa de servicios escuchando",
-			"addr", cfg.Addr, "db", cfg.DBPath, "smtp", cfg.SMTP.Enabled(), "signup", cfg.AllowSignup)
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			fatal(logger, "servidor", err)
+	ln, err := net.Listen("tcp", cfg.Addr)
+	if err != nil {
+		if errors.Is(err, syscall.EADDRINUSE) {
+			fatal(logger, "servidor", fmt.Errorf("el puerto de %s ya está en uso; cierra la instancia en ejecución (pkill -x mesa) o cambia el puerto en Administración › Ajustes: %w", cfg.Addr, err))
 		}
-	}()
+		fatal(logger, "servidor", err)
+	}
+	serveLn := func(l net.Listener) {
+		go func() {
+			if err := httpServer.Serve(l); err != nil &&
+				!errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
+				logger.Error("servidor", "err", err)
+			}
+		}()
+	}
+	serveLn(ln)
+
+	// Cambio de puerto en caliente desde la consola: se abre el listener
+	// nuevo antes de cerrar el anterior; si el puerto está ocupado, no se
+	// guarda el ajuste y el servicio sigue en la dirección actual.
+	var lnMu sync.Mutex
+	curLn := ln
+	srv.SetRebinder(func(addr string) error {
+		lnMu.Lock()
+		defer lnMu.Unlock()
+		newLn, err := net.Listen("tcp", addr)
+		if err != nil {
+			return fmt.Errorf("no se pudo escuchar en %s: %w", addr, err)
+		}
+		old := curLn
+		curLn = newLn
+		serveLn(newLn)
+		if old != nil {
+			_ = old.Close()
+		}
+		logger.Info("dirección de escucha cambiada", "addr", addr)
+		return nil
+	})
+
+	{
+		c := rt.Get()
+		logger.Info("mesa de servicios escuchando",
+			"addr", c.Addr, "db", c.DBPath, "smtp", c.SMTP.Enabled(), "signup", c.AllowSignup)
+		if !c.SMTP.Enabled() {
+			logger.Warn("SMTP no configurado: ajústalo en Administración › Ajustes")
+		}
+	}
 
 	<-ctx.Done()
 	logger.Info("apagando…")

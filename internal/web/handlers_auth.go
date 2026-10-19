@@ -75,7 +75,7 @@ func (s *Server) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 	s.page(w, r, http.StatusOK, "login.html", struct {
 		base
 		AllowSignup bool
-	}{s.baseView(r, "Entrar"), s.cfg.AllowSignup})
+	}{s.baseView(r, "Entrar"), s.conf().AllowSignup})
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +108,7 @@ func (s *Server) failLogin(w http.ResponseWriter, r *http.Request, msg string) {
 	s.page(w, r, http.StatusUnauthorized, "login.html", struct {
 		base
 		AllowSignup bool
-	}{base{Title: "Entrar", Error: msg, CSRF: auth.CSRFToken(r.Context()), Now: nowUTC()}, s.cfg.AllowSignup})
+	}{base{Title: "Entrar", Error: msg, CSRF: auth.CSRFToken(r.Context()), Now: nowUTC()}, s.conf().AllowSignup})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +123,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSignupForm(w http.ResponseWriter, r *http.Request) {
-	if !s.cfg.AllowSignup {
+	if !s.conf().AllowSignup {
 		s.errorPage(w, r, http.StatusForbidden, "El registro público está desactivado. Pide una cuenta a un administrador.")
 		return
 	}
@@ -133,7 +133,7 @@ func (s *Server) handleSignupForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
-	if !s.cfg.AllowSignup {
+	if !s.conf().AllowSignup {
 		s.errorPage(w, r, http.StatusForbidden, "El registro público está desactivado.")
 		return
 	}

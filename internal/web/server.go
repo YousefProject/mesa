@@ -13,7 +13,7 @@ import (
 )
 
 type Server struct {
-	cfg     config.Config
+	cfg     *config.Runtime
 	store   store.Repo
 	mail    mail.Sender
 	render  *Renderer
@@ -21,20 +21,28 @@ type Server struct {
 	version string
 	mux     *http.ServeMux
 	snaps   *snapshot.Writer
+	// rebind reabre el listener HTTP en una nueva dirección. Lo instala
+	// main.go al crear el servidor; si es nil, el cambio de puerto se
+	// aplica en el próximo reinicio.
+	rebind func(addr string) error
 }
 
-func New(cfg config.Config, st store.Repo, sender mail.Sender, logger *slog.Logger, version string) (*Server, error) {
+func New(rt *config.Runtime, st store.Repo, sender mail.Sender, logger *slog.Logger, version string) (*Server, error) {
 	r, err := NewRenderer()
 	if err != nil {
 		return nil, err
 	}
 	s := &Server{
-		cfg: cfg, store: st, mail: sender, render: r, logger: logger, version: version,
-		mux: http.NewServeMux(), snaps: snapshot.New(st, cfg.TicketsDir, logger),
+		cfg: rt, store: st, mail: sender, render: r, logger: logger, version: version,
+		mux: http.NewServeMux(), snaps: snapshot.New(st, rt.Get().TicketsDir, logger),
 	}
 	s.routes()
 	return s, nil
 }
+
+// conf devuelve la configuración vigente (snapshot en el momento de la
+// llamada). Los ajustes guardados en la consola web se reflejan al instante.
+func (s *Server) conf() config.Config { return s.cfg.Get() }
 
 func (s *Server) Handler() http.Handler {
 	return s.recover(s.logRequests(s.securityHeaders(s.loadSession(s.csrfProtect(s.mux)))))
@@ -84,7 +92,15 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /admin/backup", s.handleAdminBackupPage)
 	m.HandleFunc("GET /admin/backup/export", s.handleAdminBackupExport)
 	m.HandleFunc("POST /admin/backup/import", s.handleAdminBackupImport)
+	m.HandleFunc("GET /admin/settings", s.handleAdminSettings)
+	m.HandleFunc("POST /admin/settings", s.handleAdminSettingsSave)
+	m.HandleFunc("POST /admin/settings/test", s.handleAdminSettingsTest)
 }
+
+// SetRebinder instala la función que reabre el listener HTTP en otra
+// dirección (la llama main.go). Si no se instala, cambiar el puerto solo
+// tiene efecto al reiniciar.
+func (s *Server) SetRebinder(fn func(addr string) error) { s.rebind = fn }
 
 func (s *Server) baseView(r *http.Request, title string) base {
 	u := auth.CurrentUser(r)

@@ -113,3 +113,11 @@ INSERT OR IGNORE INTO sla_policies (priority, response_minutes, resolution_minut
 
 INSERT OR IGNORE INTO queues (id, name, description, created_at) VALUES
     (1, 'Soporte', 'Incidencias y peticiones generales', '2024-01-01T00:00:00Z');
+
+-- Ajustes de la aplicación editables desde la consola web. La capa de
+-- configuración (internal/config) usa estos valores como fuente de verdad y
+-- recurre a las variables de entorno solo como valores por defecto iniciales.
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
